@@ -1,0 +1,37 @@
+# Repository Guidelines
+
+## Project Structure & Module Organization
+
+This is a ROS 2 Humble / Gazebo Fortress colcon workspace. This repository vendors source snapshots under `src/`; original repositories and revisions are recorded in `UPSTREAM.md`.
+
+- `src/rmu_gazebo_simulator/rmu_gazebo_simulator/`: simulator launch files, YAML configuration, Python referee nodes, and `resource/` worlds/models. The current configuration spawns two rm25 robots in `diting_3v3_field`.
+- `src/rmoss_gazebo/`: Gazebo plugins, robot control interfaces, camera integration, and manual test scripts.
+- `src/pb2025_sentry_nav/`: Nav2 bringup, controllers, localization, odometry, and terrain processing. Navigation maps and parameters live in `pb2025_nav_bringup/`.
+- `src/pb2025_robot_description/`: robot XMacro descriptions and visualization resources.
+- `build/`, `install/`, and `log/`: generated colcon outputs; edit source files instead.
+
+## Build, Test, and Development Commands
+
+Run from the workspace root in Bash:
+
+```bash
+source /opt/ros/humble/setup.bash
+rosdep install -r --from-paths src --ignore-src --rosdistro humble -y
+colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release
+source install/setup.bash
+ros2 launch rmu_gazebo_simulator bringup_sim.launch.py
+```
+
+These commands load ROS, install declared dependencies, build packages, load the workspace, and launch simulation. For focused builds, add `--packages-select <package>` when dependencies are already built. Start Gazebo playback to advance simulation.
+
+## Coding Style & Naming Conventions
+
+Follow each package's existing conventions and formatter configuration. Use four-space Python indentation; C++ packages with Google-based `.clang-format` generally use two spaces. Keep package/file names in `snake_case`, C++ classes in `PascalCase`, and launch filenames consistent with neighboring files. Run `pre-commit run --all-files` inside the affected Git repository where configured; hooks include Ruff, clang-format, codespell, and ament checks.
+
+## Testing Guidelines
+
+Run `colcon test --packages-select <package>` followed by `colcon test-result --verbose`. Several packages register ament lint checks under `BUILD_TESTING`; no workspace-wide coverage threshold is defined. Follow existing `test/` and `test_*.py` patterns for new tests. RMOSS command scripts are manual simulation checks. For behavior changes, verify robot spawning, namespaced topics, motion, and referee HP behavior as applicable; record reproduction commands.
+
+## Commit & Pull Request Guidelines
+
+Commit workspace changes here and preserve upstream license notices. Upstream history mixes imperative subjects such as `Update lidar pose in sentry_robot` with scoped prefixes such as `ci(mergify): ...`; use a concise, descriptive subject consistent with that project. Keep changes focused. PRs should explain behavior changes, link relevant issues, list validation commands/results, and include screenshots or recordings for visible simulation changes. Follow the affected project's `CONTRIBUTING.md` when present.

@@ -1,0 +1,22 @@
+# ROS/colcon outputs
+build/
+install/
+log/
+logs/
+devel/
+# Python and editors
+__pycache__/
+*.py[cod]
+.venv/
+.vscode/
+.idea/
+*.swp
+# Local captures, credentials, and backups
+*.bag
+*.db3
+.env
+.env.*
+*.pem
+*.key
+*.broken_backup
+.DS_Store

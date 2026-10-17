@@ -1,0 +1,6 @@
+# DEPRECATED: no longer used by any launch file after the rm25 + HP-only referee rework (kept for reference; safe to delete).
+/**:
+  ros__parameters:
+    max_hp: 500
+    initial_projectiles: 100
+    initial_resources: 200

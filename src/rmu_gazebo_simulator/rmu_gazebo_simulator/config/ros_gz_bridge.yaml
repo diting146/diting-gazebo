@@ -1,0 +1,47 @@
+# ros_gz_bridge config for rmu_gazebo_simulator running rm25_example_robot.
+# <robot_name> is substituted per robot in bringup_sim.launch.py, so one bridge
+# config drives all robots.
+#
+# NOTE: the single /clock bridge is created separately in gazebo.launch.py, so
+# it is intentionally NOT listed here (avoids duplicate /clock publishers).
+
+# MecanumDrive2: ROS -> Gazebo (this is what actually drives the robot)
+- ros_topic_name: "/<robot_name>/cmd_vel"
+  gz_topic_name: "/<robot_name>/cmd_vel"
+  ros_type_name: "geometry_msgs/msg/Twist"
+  gz_type_name: "ignition.msgs.Twist"
+  direction: "ROS_TO_GZ"
+
+# MecanumDrive2: Gazebo -> ROS (odometry; frame <robot>/odom -> <robot>/chassis)
+- ros_topic_name: "/<robot_name>/odometry"
+  gz_topic_name: "/<robot_name>/odometry"
+  ros_type_name: "nav_msgs/msg/Odometry"
+  gz_type_name: "ignition.msgs.Odometry"
+  direction: "GZ_TO_ROS"
+
+# rm25 3D lidar. The sensor <topic> is intentionally UNSET in model.sdf so that
+# Gazebo scopes it per robot:
+#   /world/default/model/<robot>/link/lidar_link/sensor/lidar_3d/scan/points
+# (Setting an explicit <topic> would make it a single global topic shared by all
+#  robots — that is the multi-robot pointcloud collision bug.)
+- ros_topic_name: "/<robot_name>/points_raw"
+  gz_topic_name: "/world/default/model/<robot_name>/link/lidar_link/sensor/lidar_3d/scan/points"
+  ros_type_name: "sensor_msgs/msg/PointCloud2"
+  gz_type_name: "ignition.msgs.PointCloudPacked"
+  direction: "GZ_TO_ROS"
+  qos_reliability: "BEST_EFFORT"
+
+# rm25 chassis IMU (no explicit <topic> in the SDF -> Gazebo default).
+- ros_topic_name: "/<robot_name>/imu/data"
+  gz_topic_name: "/world/default/model/<robot_name>/link/chassis/sensor/chassis_imu/imu"
+  ros_type_name: "sensor_msgs/msg/Imu"
+  gz_type_name: "ignition.msgs.IMU"
+  direction: "GZ_TO_ROS"
+  qos_reliability: "BEST_EFFORT"
+
+# rm25 JointStatePublisher (publishes gimbal_yaw_joint).
+- ros_topic_name: "/<robot_name>/joint_states"
+  gz_topic_name: "/world/default/model/<robot_name>/joint_state"
+  ros_type_name: "sensor_msgs/msg/JointState"
+  gz_type_name: "ignition.msgs.Model"
+  direction: "GZ_TO_ROS"
