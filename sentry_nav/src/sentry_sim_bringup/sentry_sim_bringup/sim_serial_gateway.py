@@ -1,0 +1,126 @@
+# Copyright 2026 diting
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""
+Fake MCU gateway between Nav2 and the simulated sentry chassis.
+
+The real sentry receives ``cmd_vel`` over a serial link from its MCU.  In
+simulation the chassis is driven by the Gazebo-native ``MecanumDrive2`` plugin,
+which subscribes to the Gazebo transport topic ``/<entity_name>/cmd_vel``
+(``ignition.msgs.Twist``).  Python has no Gazebo transport bindings, so this
+node republishes incoming ROS ``geometry_msgs/msg/Twist`` messages on a ROS
+topic and ``ros_gz_bridge`` maps that topic onto the Gazebo transport topic.
+
+When no command arrives for ``timeout_ms`` milliseconds the node behaves like
+a watchdog and clears translation at ``publish_rate_hz``. Angular velocity
+returns to ``idle_spin_speed`` (zero by default), allowing continuous small-gyro
+rotation in simulation even when Nav2 has no active goal.
+"""
+
+import math
+
+import rclpy
+from example_interfaces.msg import Float32
+from geometry_msgs.msg import Twist
+from rclpy.node import Node
+from rclpy.signals import SignalHandlerOptions
+
+
+class SimSerialGateway(Node):
+    """Republish ROS commands and use the configured idle spin on input timeout."""
+
+    def __init__(self):
+        super().__init__('sim_serial_gateway')
+
+        input_topic = self.declare_parameter('input_topic', 'cmd_vel').value
+        output_topic = self.declare_parameter(
+            'output_topic', 'sentry_robot1/cmd_vel'
+        ).value
+        timeout_ms = int(self.declare_parameter('timeout_ms', 200).value)
+        publish_rate_hz = float(
+            self.declare_parameter('publish_rate_hz', 50.0).value
+        )
+
+        if timeout_ms < 0:
+            raise ValueError('timeout_ms must be non-negative')
+        if publish_rate_hz <= 0.0:
+            raise ValueError('publish_rate_hz must be positive')
+
+        self._idle_spin_speed = float(
+            self.declare_parameter('idle_spin_speed', 0.0).value
+        )
+        self._timeout_seconds = timeout_ms / 1000.0
+        self._last_received_ns = None
+        self._publisher = self.create_publisher(Twist, output_topic, 10)
+        self._subscription = self.create_subscription(
+            Twist, input_topic, self._on_twist, 10
+        )
+        self._spin_subscription = self.create_subscription(
+            Float32, '/cmd_spin', self._on_spin, 10
+        )
+        self._timer = self.create_timer(
+            1.0 / publish_rate_hz, self._on_timer
+        )
+
+        self.get_logger().info(
+            f'sim_serial_gateway: {input_topic} -> {output_topic} '
+            f'(timeout {timeout_ms} ms)'
+        )
+
+    def _on_spin(self, msg):
+        """Use the same spin request as fake_vel_transform during idle."""
+        if not math.isfinite(msg.data):
+            self.get_logger().warning('Ignoring non-finite spin speed')
+            return
+        self._idle_spin_speed = float(msg.data)
+        self.get_logger().info(f'Idle spin speed: {self._idle_spin_speed:.3f} rad/s')
+        self._on_timer()
+
+    def _on_twist(self, msg):
+        """Forward an incoming command and remember when it arrived."""
+        self._last_received_ns = self.get_clock().now().nanoseconds
+        self._publisher.publish(msg)
+
+    def _on_timer(self):
+        """Clear translation and apply the configured spin while input is silent."""
+        idle_command = Twist()
+        idle_command.angular.z = self._idle_spin_speed
+        now_ns = self.get_clock().now().nanoseconds
+        if self._last_received_ns is None:
+            self._publisher.publish(idle_command)
+            return
+
+        age_seconds = (now_ns - self._last_received_ns) * 1e-9
+        if age_seconds >= self._timeout_seconds:
+            self._publisher.publish(idle_command)
+
+
+def main(args=None):
+    """Run the gateway until shutdown."""
+    # Keep rclpy from shutting the context down inside its signal handler;
+    # Ctrl+C then raises KeyboardInterrupt and the node is torn down cleanly.
+    rclpy.init(args=args, signal_handler_options=SignalHandlerOptions.NO)
+    node = SimSerialGateway()
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        node.destroy_node()
+        if rclpy.ok():
+            rclpy.shutdown()
+
+
+if __name__ == '__main__':
+    main()

@@ -3,8 +3,8 @@
   <model name="diting_3v3_field">
     <static>true</static>
     <link name="link">
-      <!-- Source mesh: /home/diting/装配体1(1).STL (binary STL, units = millimetres).
-           Measured bbox (mm): X 63.3..12663.3, Y 0.1..520.1, Z 33..8633.
+      <!-- Source mesh: 2027赛季3v3图纸(1).STL (binary STL, units = millimetres).
+           Measured bbox (mm): X 63.3..12663.3, Y 14.0..534.0, Z 33..8633.
            The field's ground plane is the full-footprint face (12600x8600) which
            sits at the LARGEST Y -> the model is Y-DOWN.
            Transform: scale x0.001 (mm->m), rotate -90 deg about X (Y-down -> Z-up,
@@ -12,10 +12,10 @@
            at z=0.
              world_x = 0.001*X          -> X in [-6.3, 6.3]
              world_y = 0.001*Z          -> Y in [-4.3, 4.3]
-             world_z = -0.001*Y + 0.5201-> floor (Ymax) at z=0, top at z~0.52
+             world_z = -0.001*Y + 0.5340-> floor (Ymax) at z=0, top at z~0.52
            If the field ever renders upside-down, swap this pose for
            "-6.3633 4.333 0 1.5708 0 0" (the non-flipped variant). -->
-      <pose>-6.3633 -4.333 0.5201 -1.5708 0 0</pose>
+      <pose>-6.3633 -4.333 0.5340 -1.5708 0 0</pose>
       <collision name="collision">
         <geometry>
           <mesh>

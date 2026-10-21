@@ -1,28 +1,15 @@
-# World selection + robot spawn list for rmu_gazebo_simulator.
-#
-# `world` selects resource/worlds/<world>_world.sdf (here: diting_3v3_field_world.sdf,
-# whose <world name> is "default" and whose arena comes from /home/diting/下载/3v3场地.STL).
-#
-# The arena is centred on the origin with the floor at z=0:
-#   3v3 field spans X in [-6.3, 6.3], Y in [-4.3, 4.3]  (12.6 m x 8.6 m).
-# Spawn poses below are inside that field. Add/remove entries to change the number
-# of robots; edit x/y/z/yaw to move them. z=0.3 spawns the rm25 slightly above the
-# floor (its wheel bottoms sit at ~0.15 m), so it settles down on contact.
-# Top-view convention: +X is right and +Y is up. Spawn in the upper corners,
-# inset from the walls and below the upper-left raised block. Both robots face
-# into the field (-Y, yaw = -pi/2).
-world: "diting_3v3_field"
-
+world: diting_3v3_field
 robots:
   diting_3v3_field:
-    - name: "rm25_robot1"
-      x_pose: "-5.3"
-      y_pose: "3.0"
-      z_pose: "0.3"
-      yaw: "-1.5707963267948966"
-
-    - name: "rm25_robot2"
-      x_pose: "5.3"
-      y_pose: "3.0"
-      z_pose: "0.3"
-      yaw: "-1.5707963267948966"
+  - name: rm25_robot1
+    x_pose: '-5.3'
+    y_pose: '3.0'
+    z_pose: '0.3'
+    yaw: '-1.5707963267948966'
+    spawn: false
+  - name: rm25_robot2
+    x_pose: '5.3'
+    y_pose: '3.0'
+    z_pose: '0.3'
+    yaw: '-1.5707963267948966'
+    spawn: false

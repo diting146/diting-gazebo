@@ -20,3 +20,6 @@ __pycache__/
 *.key
 *.broken_backup
 .DS_Store
+
+# macOS resource metadata
+._*

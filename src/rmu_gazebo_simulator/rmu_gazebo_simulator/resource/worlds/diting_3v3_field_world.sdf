@@ -36,7 +36,7 @@
       <direction>0 0 -1</direction>
     </light>
 
-    <!-- 3v3 arena from /home/diting/下载/3v3场地.STL (see the model for the
+    <!-- 3v3 arena from 2027赛季3v3图纸(1).STL (see the model for the
          mm->m scale and Y-up -> Z-up rotation).  Floor is at z=0, centred on
          the origin: X in [-6.3, 6.3], Y in [-4.3, 4.3]. -->
     <include>
