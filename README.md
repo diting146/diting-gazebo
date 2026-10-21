@@ -43,3 +43,31 @@ ros2 topic hz /rm25_robot1/points_raw
 ## 代码来源
 
 源码以普通目录快照收录，克隆本仓库不需要初始化 Git 子模块。上游地址、基线提交和许可说明见 [UPSTREAM.md](UPSTREAM.md)。本地修改已包含在此快照中。构建产物、运行日志和旧模型备份未收录。
+
+## 哨兵导航工作区（sentry_nav）
+
+`sentry_nav/src/` 包含完整的导航源码快照和自定义 `sentry_sim_bringup`。当前仿真支持 3D 点云转 LaserScan 避障、Gazebo 真值定位、底盘自旋及云台对地稳向。两个工作区均包含上游导航包，因此构建时必须指定 `--base-paths src`，分别构建：
+
+```bash
+# 仓库根目录：先构建 Gazebo 工作区
+source /opt/ros/humble/setup.bash
+colcon build --base-paths src --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release
+source install/setup.bash
+
+# 再构建导航 overlay
+cd sentry_nav
+colcon build --base-paths src --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release
+source install/setup.bash
+ros2 launch sentry_sim_bringup bringup_sentry_simulation_launch.py x:=-5.3 y:=3.0 yaw:=-1.57079632679 spin_speed:=3.14
+```
+
+以上全量构建需先安装上游包的依赖；仅构建 `sentry_sim_bringup` 要求其依赖已经安装。新终端应依次 source ROS、仓库根目录 `install/setup.bash`、`sentry_nav/install/setup.bash`。
+
+运行中开启或停止自旋（云台稳向继续工作）：
+
+```bash
+ros2 topic pub --once -w 2 --keep-alive 1 /cmd_spin example_interfaces/msg/Float32 "{data: 3.14}"
+ros2 topic pub --once -w 2 --keep-alive 1 /cmd_spin example_interfaces/msg/Float32 "{data: 0.0}"
+```
+
+默认自旋速度由 `spin_speed` 指定；`spin_speed:=0` 关闭启动时自旋，`gimbal_world_lock:=False` 关闭云台稳向。当前 TF 高度表达仍有简化，实车部署需另外接入真实定位、电控和传感器标定。

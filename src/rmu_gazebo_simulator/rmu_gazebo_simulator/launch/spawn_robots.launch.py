@@ -44,6 +44,8 @@ def generate_launch_description():
     ld = LaunchDescription()
 
     for robot in robots:
+        if not robot.get("spawn", True):
+            continue
         spawn_robot = Node(
             package="ros_gz_sim",
             executable="create",

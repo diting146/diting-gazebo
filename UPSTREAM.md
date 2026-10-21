@@ -27,3 +27,18 @@ This workspace contains source snapshots, including local simulation changes. Up
 ## Licenses
 
 Consult each vendored project and third-party directory for its license. This snapshot does not replace those licenses or claim ownership of upstream source or models. The robot-description package declares Apache-2.0 in its package manifest.
+
+## Navigation overlay
+
+`sentry_nav/src/pb2025_sentry_nav` is a source snapshot from https://github.com/SMBU-PolarBear-Robotics-Team/pb2025_sentry_nav, including populated dependency submodules as ordinary directories. Original package licenses are retained. `sentry_nav/src/sentry_sim_bringup` contains the local Gazebo/Nav2 integration, lidar scan conversion configuration, gimbal TF and world-yaw stabilization, and runtime spin control.
+
+Snapshot revisions:
+
+- `pb2025_sentry_nav`: `9c124ebb0c0b6b64714390ea3c92f27490f63f9d`
+- `pb_omni_pid_pursuit_controller`: `b542c5794b91fba2bb3fe2cbdc72fcf854fedb1a`
+- `pointcloud_to_laserscan`: `5efaa8ba391bf4450a02cc5bb794b586c9f7d267`
+- `livox_ros_driver2`: `524e14a1ec714e427bde729a8f869bb7acd8507d`
+- `small_gicp_relocalization`: `1df063ee6f67b592e1da47e2a21ded00321c0906`
+- `pb_teleop_twist_joy`: `becf0f61b8453ef9b089cbad82e5cb2efe00c31e`
+- `point_lio`: `e85e79558cf746f6699888a54285fe48b3b0ac71`
+- `pb_nav2_plugins`: `e6778ca44d9e88aa612a3c6c87d536a8cfa21705`
