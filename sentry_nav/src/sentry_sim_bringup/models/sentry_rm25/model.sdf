@@ -76,7 +76,7 @@
 		</link>
 		<!--front_left wheel link and joint-->
 		<joint name="front_left_wheel_joint" type="revolute">
-			<pose relative_to="chassis">0.207 0.194 0 0 0 0</pose>
+			<pose relative_to="chassis">0.21152 0.24318 0 0 0 0</pose>
 			<parent>chassis</parent>
 			<child>front_left_wheel</child>
 			<axis>
@@ -130,7 +130,7 @@
 		</link>
 		<!--front_right wheel link and joint-->
 		<joint name="front_right_wheel_joint" type="revolute">
-			<pose relative_to="chassis">0.207 -0.194 0 0 0 0</pose>
+			<pose relative_to="chassis">0.21152 -0.24318 0 0 0 0</pose>
 			<parent>chassis</parent>
 			<child>front_right_wheel</child>
 			<axis>
@@ -184,7 +184,7 @@
 		</link>
 		<!--rear_left wheel link and joint-->
 		<joint name="rear_left_wheel_joint" type="revolute">
-			<pose relative_to="chassis">-0.207 0.194 0 0 0 0</pose>
+			<pose relative_to="chassis">-0.21152 0.24318 0 0 0 0</pose>
 			<parent>chassis</parent>
 			<child>rear_left_wheel</child>
 			<axis>
@@ -238,7 +238,7 @@
 		</link>
 		<!--rear_right wheel link and joint-->
 		<joint name="rear_right_wheel_joint" type="revolute">
-			<pose relative_to="chassis">-0.207 -0.194 0 0 0 0</pose>
+			<pose relative_to="chassis">-0.21152 -0.24318 0 0 0 0</pose>
 			<parent>chassis</parent>
 			<child>rear_right_wheel</child>
 			<axis>
@@ -346,11 +346,11 @@
 			     mesh unchanged, only the collision volume is dropped. -->
 		</link>
 		<!-- 3D LiDAR is mounted on gimbal_yaw so it rotates with the turret.
-		     Offsets are relative to gimbal_yaw: (0.15, -0.12, 0.0004), i.e.
-		     the same physical mount as the chassis-relative (0.15,-0.12,0.134)
+		     Offsets are relative to gimbal_yaw: (0.15, -0.12, 0.0306), pitch 0.209440 rad, i.e.
+		     the same physical mount as the chassis-relative (0.15,-0.12,0.1642)
 		     because gimbal_yaw_odom_joint sits 0.1336 above chassis. -->
 		<joint name="lidar_joint" type="fixed">
-			<pose relative_to="gimbal_yaw">0.15 -0.12 0.0004 0 0 0</pose>
+			<pose relative_to="gimbal_yaw">0.15 -0.12 0.0306 0 0.209440 0</pose>
 			<parent>gimbal_yaw</parent>
 			<child>lidar_link</child>
 		</joint>

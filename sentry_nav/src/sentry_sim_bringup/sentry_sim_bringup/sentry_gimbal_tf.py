@@ -45,8 +45,8 @@ def _quaternion_from_yaw(yaw):
     return 0.0, 0.0, math.sin(yaw / 2.0), math.cos(yaw / 2.0)
 
 
-def _make_transform(parent, child, stamp, translation, yaw=0.0):
-    """Build a TransformStamped with a pure yaw rotation."""
+def _make_transform(parent, child, stamp, translation, yaw=0.0, pitch=0.0):
+    """Build a TransformStamped with yaw and mounting pitch (zero roll)."""
     transform = TransformStamped()
     transform.header.stamp = stamp
     transform.header.frame_id = parent
@@ -54,7 +54,13 @@ def _make_transform(parent, child, stamp, translation, yaw=0.0):
     transform.transform.translation.x = float(translation[0])
     transform.transform.translation.y = float(translation[1])
     transform.transform.translation.z = float(translation[2])
-    x, y, z, w = _quaternion_from_yaw(yaw)
+    _, _, sin_yaw, cos_yaw = _quaternion_from_yaw(yaw)
+    sin_pitch = math.sin(pitch / 2.0)
+    cos_pitch = math.cos(pitch / 2.0)
+    x = -sin_yaw * sin_pitch
+    y = cos_yaw * sin_pitch
+    z = sin_yaw * cos_pitch
+    w = cos_yaw * cos_pitch
     transform.transform.rotation.x = x
     transform.transform.rotation.y = y
     transform.transform.rotation.z = z
@@ -91,7 +97,7 @@ class SentryGimbalTf(Node):
             self.declare_parameter('gimbal_yaw_odom_z', 0.1336).value
         )
         lidar_offset = self.declare_parameter(
-            'lidar_offset', [0.15, -0.12, 0.0004]
+            'lidar_offset', [0.15, -0.12, 0.0306]
         ).value
         if len(lidar_offset) != 3:
             raise ValueError(
@@ -99,6 +105,9 @@ class SentryGimbalTf(Node):
                 f'{len(lidar_offset)}'
             )
         self._lidar_offset = [float(value) for value in lidar_offset]
+        self._lidar_pitch = float(
+            self.declare_parameter('lidar_pitch', 0.209440).value
+        )
 
         self._last_warn_ns = None
 
@@ -116,6 +125,7 @@ class SentryGimbalTf(Node):
                 self._lidar_frame,
                 stamp,
                 self._lidar_offset,
+                pitch=self._lidar_pitch,
             ),
         ])
 

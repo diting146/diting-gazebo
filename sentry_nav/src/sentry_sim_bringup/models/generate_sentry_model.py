@@ -6,9 +6,10 @@
 The shared RM25 model used by the two peripheral robots keeps the lidar rigidly
 fixed to ``chassis``.  The sentry needs the lidar mounted on the rotating
 ``gimbal_yaw`` link instead, so this script derives a separate model from the
-shared one and rewrites only the ``lidar_joint`` block and its comment.
+shared one, rewrites the lidar mount, and configures the gimbal joints
+and controller.
 
-Everything else (chassis, wheels, MecanumDrive2, IMU, gimbal controller, the
+Everything else (chassis, wheels, MecanumDrive2, IMU, the
 ``lidar_3d`` sensor and its ``ignition_frame_id``) is copied byte-for-byte.
 
 Usage:
@@ -24,19 +25,19 @@ import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-DEFAULT_GAZEBO_SRC = '/home/diting/work/rm_sentry_nav_ws/gazebo/src'
+DEFAULT_GAZEBO_SRC = str(Path(__file__).resolve().parents[4] / 'src')
 
-# (0.15, -0.12, 0.134) relative to chassis minus the gimbal yaw joint height
-# 0.1336 (model.sdf `gimbal_yaw_odom_joint`) leaves 0.0004 on z.
-OLD_POSE = '0.15 -0.12 0.1340 0 0 0'
-NEW_POSE = '0.15 -0.12 0.0004 0 0 0'
+# Chassis-relative lidar height 0.1642 minus the gimbal mount height
+# 0.1336 leaves 0.0306 on z; preserve the 0.209440 rad pitch.
+OLD_POSE = '0.15 -0.12 0.1642 0 0.209440 0'
+NEW_POSE = '0.15 -0.12 0.0306 0 0.209440 0'
 
 JOINT_RE = re.compile(
     r'[ \t]*<joint\s+name="lidar_joint"[^>]*>.*?</joint>',
     re.DOTALL,
 )
 COMMENT_RE = re.compile(
-    r'[ \t]*<!--[ \t]*3D LiDAR mounted on gimbal_yaw.*?-->',
+    r'[ \t]*<!--[ \t]*3D LiDAR fixed to chassis.*?-->',
     re.DOTALL,
 )
 CONTROLLER_RE = re.compile(
@@ -65,8 +66,8 @@ GIMBAL_JOINT_RE = re.compile(
 
 NEW_COMMENT_LINES = (
     '<!-- 3D LiDAR is mounted on gimbal_yaw so it rotates with the turret.',
-    '     Offsets are relative to gimbal_yaw: (0.15, -0.12, 0.0004), i.e.',
-    '     the same physical mount as the chassis-relative (0.15,-0.12,0.134)',
+    '     Offsets are relative to gimbal_yaw: (0.15, -0.12, 0.0306), pitch 0.209440 rad, i.e.',
+    '     the same physical mount as the chassis-relative (0.15,-0.12,0.1642)',
     '     because gimbal_yaw_odom_joint sits 0.1336 above chassis. -->',
 )
 
@@ -103,7 +104,7 @@ def _patch_joint(match: re.Match) -> str:
 
 
 def _patch_comment(match: re.Match) -> str:
-    """Replace the stale 'mounted on gimbal_yaw' comment with an accurate one."""
+    """Describe the gimbal-relative lidar mount and its preserved pitch."""
     block = match.group(0)
     indent = block[: len(block) - len(block.lstrip(' \t'))]
     return '\n'.join(indent + line for line in NEW_COMMENT_LINES)

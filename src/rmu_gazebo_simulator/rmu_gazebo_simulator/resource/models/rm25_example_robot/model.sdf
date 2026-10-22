@@ -76,7 +76,7 @@
 		</link>
 		<!--front_left wheel link and joint-->
 		<joint name="front_left_wheel_joint" type="revolute">
-			<pose relative_to="chassis">0.207 0.194 0 0 0 0</pose>
+			<pose relative_to="chassis">0.21152 0.24318 0 0 0 0</pose>
 			<parent>chassis</parent>
 			<child>front_left_wheel</child>
 			<axis>
@@ -130,7 +130,7 @@
 		</link>
 		<!--front_right wheel link and joint-->
 		<joint name="front_right_wheel_joint" type="revolute">
-			<pose relative_to="chassis">0.207 -0.194 0 0 0 0</pose>
+			<pose relative_to="chassis">0.21152 -0.24318 0 0 0 0</pose>
 			<parent>chassis</parent>
 			<child>front_right_wheel</child>
 			<axis>
@@ -184,7 +184,7 @@
 		</link>
 		<!--rear_left wheel link and joint-->
 		<joint name="rear_left_wheel_joint" type="revolute">
-			<pose relative_to="chassis">-0.207 0.194 0 0 0 0</pose>
+			<pose relative_to="chassis">-0.21152 0.24318 0 0 0 0</pose>
 			<parent>chassis</parent>
 			<child>rear_left_wheel</child>
 			<axis>
@@ -238,7 +238,7 @@
 		</link>
 		<!--rear_right wheel link and joint-->
 		<joint name="rear_right_wheel_joint" type="revolute">
-			<pose relative_to="chassis">-0.207 -0.194 0 0 0 0</pose>
+			<pose relative_to="chassis">-0.21152 -0.24318 0 0 0 0</pose>
 			<parent>chassis</parent>
 			<child>rear_right_wheel</child>
 			<axis>
@@ -357,12 +357,10 @@
 			     occluding the lidar mounted on this link (see below). Visual
 			     mesh unchanged, only the collision volume is dropped. -->
 		</link>
-		<!--3D LiDAR mounted on gimbal_yaw: rotates with the turret, right
-		    front of the chassis when yaw=0. The chassis's rear projectile-
-		    container collision volume was removed above, so there is no
-		    self-occlusion concern regardless of yaw angle.-->
+		<!-- 3D LiDAR fixed to chassis at (0.15, -0.12, 0.1642),
+		     with pitch 0.209440 rad. The sentry variant mounts it on gimbal_yaw. -->
 		<joint name="lidar_joint" type="fixed">
-			<pose relative_to="chassis">0.15 -0.12 0.1340 0 0 0</pose>
+			<pose relative_to="chassis">0.15 -0.12 0.1642 0 0.209440 0</pose>
 			<parent>chassis</parent>
 			<child>lidar_link</child>
 		</joint>
