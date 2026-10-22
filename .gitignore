@@ -6,6 +6,7 @@ logs/
 devel/
 # Python and editors
 __pycache__/
+.pytest_cache/
 *.py[cod]
 .venv/
 .vscode/
@@ -23,3 +24,8 @@ __pycache__/
 
 # macOS resource metadata
 ._*
+
+# Local mapping captures; the reduced runtime prior is tracked separately.
+**/point_lio/PCD/
+**/point_lio/Log/
+sentry_nav/src/sentry_sim_bringup/maps/*_mapped_raw.pcd

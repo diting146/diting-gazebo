@@ -42,3 +42,22 @@ Snapshot revisions:
 - `pb_teleop_twist_joy`: `becf0f61b8453ef9b089cbad82e5cb2efe00c31e`
 - `point_lio`: `e85e79558cf746f6699888a54285fe48b3b0ac71`
 - `pb_nav2_plugins`: `e6778ca44d9e88aa612a3c6c87d536a8cfa21705`
+
+## 2026-10-22 integration
+
+The overlay now defaults to sensor-only Point-LIO and small_gicp localization.
+Local additions include instantaneous cloud adaptation into the chassis frame,
+IMU-based gimbal stabilization, terrain-cloud obstacle layers, mapping bringup,
+and reference-only error monitoring. Upstream C++ estimator source is retained;
+the simulation parameter snapshot and custom integration package carry the
+configuration changes.
+
+The tracked `diting_3v3_field_mapped.pcd` prior contains 242,239 downsampled
+sensor-mapping points in the original mapping coordinates. The 5,483,668-point
+raw capture is kept locally and is not distributed in Git. The STL-derived
+`diting_3v3_field.pcd` remains a separate geometric reference.
+
+Model geometry follows collaborator commit `ca4d876`, including wider wheel
+positions and the raised, pitched lidar. Local costmap radii are 0.40 m to cover
+the widened wheel collision envelope. Earlier dynamic acceptance measurements
+precede that geometry update; see `docs/validation/2026-10-22.md` for the scope.

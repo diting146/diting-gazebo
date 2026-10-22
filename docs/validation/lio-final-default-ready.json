@@ -1,0 +1,27 @@
+{
+  "streams_ready": true,
+  "error_samples": 10,
+  "parameters": {
+    "sim_serial_gateway": {
+      "idle_spin_speed": 0.0
+    },
+    "fake_vel_transform": {
+      "init_spin_speed": 0.0
+    },
+    "point_lio": {
+      "mapping.lidar_meas_cov": 1000.0,
+      "mapping.acc_norm": 9.8,
+      "space_down_sample": false
+    },
+    "controller_server": {
+      "FollowPath.min_approach_linear_velocity": 0.18
+    }
+  },
+  "spawn_xy": [
+    -5.300000000116696,
+    3.000043283983747
+  ],
+  "angular_speed_rad_s": -9.42823862611117e-16,
+  "max_xy_error_m": 0.006263545032414776,
+  "passed": true
+}

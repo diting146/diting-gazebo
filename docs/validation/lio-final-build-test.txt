@@ -1,0 +1,34 @@
+Starting >>> sentry_sim_bringup
+Finished <<< sentry_sim_bringup [3.23s]
+
+Summary: 1 package finished [4.38s]
+Starting >>> sentry_sim_bringup
+============================= test session starts ==============================
+platform linux -- Python 3.10.12, pytest-6.2.5, py-1.10.0, pluggy-0.13.0
+cachedir: /home/diting/work/rm_sentry_nav_ws/sentry_nav/build/sentry_sim_bringup/.pytest_cache
+rootdir: /home/diting/work/rm_sentry_nav_ws/sentry_nav/src/sentry_sim_bringup
+collected 2 items
+
+test/test_smoke.py ..                                                    [100%]
+
+- generated xml file: /home/diting/work/rm_sentry_nav_ws/sentry_nav/build/sentry_sim_bringup/pytest.xml -
+============================== 2 passed in 0.41s ===============================
+Finished <<< sentry_sim_bringup [1.35s]
+
+Summary: 1 package finished [1.94s]
+Summary: 2 tests, 0 errors, 0 failures, 0 skipped
+Starting >>> sentry_sim_bringup
+============================= test session starts ==============================
+platform linux -- Python 3.10.12, pytest-6.2.5, py-1.10.0, pluggy-0.13.0
+cachedir: /home/diting/work/rm_sentry_nav_ws/sentry_nav/build/sentry_sim_bringup/.pytest_cache
+rootdir: /home/diting/work/rm_sentry_nav_ws/sentry_nav/src/sentry_sim_bringup
+collected 2 items
+
+test/test_smoke.py ..                                                    [100%]
+
+- generated xml file: /home/diting/work/rm_sentry_nav_ws/sentry_nav/build/sentry_sim_bringup/pytest.xml -
+============================== 2 passed in 0.49s ===============================
+Finished <<< sentry_sim_bringup [1.67s]
+
+Summary: 1 package finished [2.33s]
+Summary: 2 tests, 0 errors, 0 failures, 0 skipped

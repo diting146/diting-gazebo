@@ -32,6 +32,7 @@ from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from launch_ros.descriptions import ParameterFile
+from launch_ros.parameter_descriptions import ParameterValue
 from nav2_common.launch import ReplaceString, RewrittenYaml
 
 
@@ -63,7 +64,6 @@ def generate_launch_description():
             param_rewrites={
                 'use_sim_time': use_sim_time,
                 'yaml_filename': map_yaml_file,
-                'init_spin_speed': spin_speed,
             },
             convert_types=True,
         ),
@@ -247,7 +247,9 @@ def generate_launch_description():
         package='fake_vel_transform',
         executable='fake_vel_transform_node',
         name='fake_vel_transform',
-        parameters=[configured_params],
+        parameters=[configured_params, {
+            'init_spin_speed': ParameterValue(spin_speed, value_type=float),
+        }],
         output='screen',
     )
 
@@ -278,7 +280,7 @@ def generate_launch_description():
         executable='pointcloud_to_laserscan_node',
         name='pointcloud_to_laserscan',
         remappings=[
-            ('cloud_in', '/sentry_robot1/points_raw'),
+            ('cloud_in', '/livox/lidar'),
             ('scan', '/obstacle_scan'),
         ],
         parameters=[configured_params],

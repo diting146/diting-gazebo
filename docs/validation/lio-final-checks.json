@@ -1,0 +1,26 @@
+{
+  "passed": true,
+  "checks": {
+    "B1_frames": true,
+    "B2_single_adapter": true,
+    "B3_obstacle_scan": true,
+    "B4_costmap_sources": true,
+    "B5_floor_and_box": true,
+    "B6_tf_contract": true,
+    "B7_sensor_time": true,
+    "B8_raw_map_coordinates": true,
+    "B9_truth_isolated": true,
+    "B10_phase_tests": true,
+    "registration_recovery": true,
+    "normal_box_goal": true,
+    "spin_static": true,
+    "spin_motion": true,
+    "spin_box_goal": true,
+    "spin_stop": true,
+    "default_ready": true,
+    "source_scope": true,
+    "tests_passed": true
+  },
+  "spin_drift_xy_m": 0.0032040702638340304,
+  "spin_drift_yaw_rad": 0.0010090006599956514
+}

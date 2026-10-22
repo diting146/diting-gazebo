@@ -46,6 +46,12 @@ setup(
             'sentry_sim_bringup.sim_ground_truth_odometry:main',
             'sentry_gimbal_tf = '
             'sentry_sim_bringup.sentry_gimbal_tf:main',
+            'sim_reference_pose = '
+            'sentry_sim_bringup.sim_reference_pose:main',
+            'localization_error_monitor = '
+            'sentry_sim_bringup.localization_error_monitor:main',
+            'livox_cloud_adapter = '
+            'sentry_sim_bringup.livox_cloud_adapter:main',
             'gimbal_world_lock = '
             'sentry_sim_bringup.gimbal_world_lock:main',
         ],

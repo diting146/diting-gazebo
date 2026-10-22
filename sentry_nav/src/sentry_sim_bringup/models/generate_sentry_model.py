@@ -25,7 +25,13 @@ import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-DEFAULT_GAZEBO_SRC = str(Path(__file__).resolve().parents[4] / 'src')
+WORKSPACE_ROOT = Path(__file__).resolve().parents[4]
+# Support both this split workspace and the GitHub monorepo layout.
+DEFAULT_GAZEBO_SRC = str(
+    WORKSPACE_ROOT / 'gazebo' / 'src'
+    if (WORKSPACE_ROOT / 'gazebo' / 'src').is_dir()
+    else WORKSPACE_ROOT / 'src'
+)
 
 # Chassis-relative lidar height 0.1642 minus the gimbal mount height
 # 0.1336 leaves 0.0306 on z; preserve the 0.209440 rad pitch.

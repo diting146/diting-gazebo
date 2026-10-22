@@ -1,6 +1,6 @@
 ign_sim_pointcloud_tool:
   ros__parameters:
-    pcd_topic: livox/lidar
+    pcd_topic: disabled_input
     n_scan: 32
     horizon_scan: 1875
     ang_bottom: 7.0
@@ -12,10 +12,10 @@ point_lio:
     prop_at_freq_of_imu: True
     check_satu: True
     init_map_size: 10
-    point_filter_num: 8                                 # Options: 4, 3
+    point_filter_num: 1
     space_down_sample: True
-    filter_size_surf: 0.2                               # Options: 0.5, 0.3, 0.2, 0.15, 0.1
-    filter_size_map: 0.2                                # Options: 0.5, 0.3, 0.15, 0.1
+    filter_size_surf: 0.02
+    filter_size_map: 0.15
     ivox_nearby_type: 18                                # Options: 0, 6, 18, 26
     runtime_pos_log_enable: False                       # Option: True
 
@@ -68,7 +68,7 @@ point_lio:
                      0.0, 0.0, 1.0 ]
 
     odometry:
-      publish_odometry_without_downsample: True
+      publish_odometry_without_downsample: False
 
     publish:
       path_en: False                                    # False: close the path output
@@ -88,12 +88,12 @@ loam_interface:
     registered_scan_topic: "cloud_registered"
     odom_frame: "odom"
     base_frame: "base_footprint"
-    lidar_frame: "front_mid360"
+    lidar_frame: "chassis"
 
 sensor_scan_generation:
   ros__parameters:
     use_sim_time: True
-    lidar_frame: "front_mid360"
+    lidar_frame: "chassis"
     base_frame: "base_footprint"
     robot_base_frame: "gimbal_yaw"
 
@@ -169,7 +169,7 @@ small_gicp_relocalization:
     odom_frame: "odom"
     base_frame: "base_footprint"
     robot_base_frame: "gimbal_yaw"
-    lidar_frame: "front_mid360"
+    lidar_frame: "chassis"
     init_pose: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]   # [x, y, z, roll, pitch, yaw]
     # The prior_pcd_file does not need to be specified since it going to be set by defaults in launch.
     # prior_pcd_file: ""
@@ -177,15 +177,15 @@ small_gicp_relocalization:
 pointcloud_to_laserscan:
   ros__parameters:
     use_sim_time: True
-    target_frame: base_footprint
-    min_height: -0.5
-    max_height: 6.0
-    min_intensity: 0.1
-    max_intensity: 2.0
-    angle_min: -3.1415926                   # -M_PI/2
-    angle_max: 3.1415926                    # M_PI/2
-    angle_increment: 0.00872665             # M_PI/360.0
-    scan_time: 0.05
+    target_frame: gimbal_yaw_fake
+    min_height: 0.0
+    max_height: 1.0
+    min_intensity: 0.0
+    max_intensity: 100.0
+    angle_min: -3.1415926
+    angle_max: 3.1415926
+    angle_increment: 0.00872665
+    scan_time: 0.1
     range_min: 0.3
     range_max: 10.0
     use_inf: true
@@ -392,34 +392,24 @@ local_costmap:
       height: 5
       resolution: 0.05
       robot_radius: 0.2
-      plugins: ["static_layer", "intensity_voxel_layer", "inflation_layer"]
-      intensity_voxel_layer:
-        plugin: pb_nav2_costmap_2d::IntensityVoxelLayer
+      plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
+      obstacle_layer:
+        plugin: "nav2_costmap_2d::ObstacleLayer"
         enabled: true
-        track_unknown_space: true
-        footprint_clearing_enabled: true
-        publish_voxel_map: false
-        combination_method: 1
-        mark_threshold: 0
-        origin_z: 0.0
-        unknown_threshold: 5
-        z_resolution: 0.05
-        z_voxels: 16
-        min_obstacle_height: 0.0
-        max_obstacle_height: 2.0
-        min_obstacle_intensity: 0.1
-        max_obstacle_intensity: 2.0
         observation_sources: terrain_map
         terrain_map:
           data_type: PointCloud2
           # '<robot_namespace>' keyword shall be replaced with 'namespace' where user defined.
           # It doesn't need to start with '/'
           topic: <robot_namespace>/terrain_map
-          sensor_frame: front_mid360
-          min_obstacle_height: 0.0
+          min_obstacle_height: -0.3
           max_obstacle_height: 2.0
           obstacle_max_range: 5.0
           obstacle_min_range: 0.2
+          raytrace_max_range: 5.0
+          raytrace_min_range: 0.0
+          clearing: True
+          marking: True
       static_layer:
         plugin: "nav2_costmap_2d::StaticLayer"
         map_subscribe_transient_local: True
@@ -439,34 +429,24 @@ global_costmap:
       robot_base_frame: gimbal_yaw_fake
       robot_radius: 0.2
       resolution: 0.05
-      plugins: ["static_layer", "intensity_voxel_layer", "inflation_layer"]
-      intensity_voxel_layer:
-        plugin: pb_nav2_costmap_2d::IntensityVoxelLayer
+      plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
+      obstacle_layer:
+        plugin: "nav2_costmap_2d::ObstacleLayer"
         enabled: true
-        track_unknown_space: true
-        footprint_clearing_enabled: true
-        publish_voxel_map: false
-        combination_method: 1
-        mark_threshold: 0
-        origin_z: 0.0
-        unknown_threshold: 5
-        z_resolution: 0.05
-        z_voxels: 16
-        min_obstacle_height: 0.0
-        max_obstacle_height: 2.0
-        min_obstacle_intensity: 0.1
-        max_obstacle_intensity: 2.0
         observation_sources: terrain_map_ext
         terrain_map_ext:
           data_type: PointCloud2
           # '<robot_namespace>' keyword shall be replaced with 'namespace' where user defined.
           # It doesn't need to start with '/'
           topic: <robot_namespace>/terrain_map_ext
-          sensor_frame: front_mid360
-          min_obstacle_height: 0.0
+          min_obstacle_height: -0.3
           max_obstacle_height: 2.0
           obstacle_max_range: 10.0
           obstacle_min_range: 0.2
+          raytrace_max_range: 10.0
+          raytrace_min_range: 0.0
+          clearing: True
+          marking: True
       static_layer:
         plugin: "nav2_costmap_2d::StaticLayer"
         map_subscribe_transient_local: True

@@ -5,7 +5,7 @@
   <version>0.1.0</version>
   <description>
     Simulation bringup for a RM25-model sentry, including sensor bridges,
-    ground-truth odometry, and a fake MCU velocity gateway.
+    sensor-only LIO navigation, mapping, and a simulated MCU velocity gateway.
   </description>
   <maintainer email="diting@example.com">diting</maintainer>
   <license>Apache-2.0</license>
@@ -13,6 +13,7 @@
   <buildtool_depend>ament_python</buildtool_depend>
 
   <exec_depend>rclpy</exec_depend>
+  <exec_depend>python3-numpy</exec_depend>
   <exec_depend>geometry_msgs</exec_depend>
   <exec_depend>nav_msgs</exec_depend>
   <exec_depend>sensor_msgs</exec_depend>
@@ -30,7 +31,11 @@
   <exec_depend>pb2025_robot_description</exec_depend>
   <exec_depend>pointcloud_to_laserscan</exec_depend>
   <exec_depend>fake_vel_transform</exec_depend>
+  <exec_depend>terrain_analysis</exec_depend>
+  <exec_depend>terrain_analysis_ext</exec_depend>
   <exec_depend>point_lio</exec_depend>
+  <exec_depend>loam_interface</exec_depend>
+  <exec_depend>sensor_scan_generation</exec_depend>
   <exec_depend>small_gicp_relocalization</exec_depend>
 
   <export>
