@@ -22,6 +22,7 @@ data_files = [
     ('share/' + package_name, ['package.xml']),
     ('share/' + package_name + '/launch', glob('launch/*.py')),
     ('share/' + package_name + '/config', glob('config/*')),
+    ('share/' + package_name + '/behavior_trees', glob('behavior_trees/*.xml')),
 ]
 data_files.extend(recursive_data_files('models'))
 data_files.extend(recursive_data_files('maps'))
@@ -40,18 +41,17 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            'sim_lio_gateway = sentry_sim_bringup.sim_lio_gateway:main',
+            'sensor_gimbal_world_lock = sentry_sim_bringup.sensor_gimbal_world_lock:main',
+            'livox_cloud_adapter = sentry_sim_bringup.livox_cloud_adapter:main',
+            'localization_error_monitor = sentry_sim_bringup.localization_error_monitor:main',
+            'sim_reference_pose = sentry_sim_bringup.sim_reference_pose:main',
             'sim_serial_gateway = '
             'sentry_sim_bringup.sim_serial_gateway:main',
             'sim_ground_truth_odometry = '
             'sentry_sim_bringup.sim_ground_truth_odometry:main',
             'sentry_gimbal_tf = '
             'sentry_sim_bringup.sentry_gimbal_tf:main',
-            'sim_reference_pose = '
-            'sentry_sim_bringup.sim_reference_pose:main',
-            'localization_error_monitor = '
-            'sentry_sim_bringup.localization_error_monitor:main',
-            'livox_cloud_adapter = '
-            'sentry_sim_bringup.livox_cloud_adapter:main',
             'gimbal_world_lock = '
             'sentry_sim_bringup.gimbal_world_lock:main',
         ],

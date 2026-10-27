@@ -46,7 +46,7 @@ ros2 topic hz /rm25_robot1/points_raw
 
 ## 哨兵导航工作区（sentry_nav）
 
-默认使用 **Point-LIO + small_gicp 传感器定位**，左上角出生，只生成哨兵，自旋关闭。Gazebo 雷达和 IMU 提供传感器输入；真值仅发布到 `/reference/*` 供误差观测，不提供定位、TF 或运动控制。`localization:=ground_truth` 仅用于显式调试。
+仅保留双车完整仿真入口：自动哨兵 `sentry_robot1` 使用 **Point-LIO + small_gicp 传感器定位和二维 YAstar 全局规划**，手动车 `rm25_robot1` 用于制造动态障碍，不运行导航或车间通信；不生成 robot2。Gazebo 雷达和 IMU 提供定位输入；真值仅供误差观测。`localization:=ground_truth` 保留为显式调试选项，Theta* 保留为显式比较选项，无自动回退。
 
 ### 构建与启动
 
@@ -62,36 +62,50 @@ cd sentry_nav
 colcon build --base-paths src --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release
 cd ..
 source source_all.bash
-ros2 launch sentry_sim_bringup bringup_sentry_simulation_launch.py \
-  localization:=lio spin_speed:=0.0 use_rviz:=False
+ros2 launch sentry_sim_bringup dual_sentry_simulation_launch.py \
+  spin_speed:=0.0 use_rviz:=True
 ```
 
 全量构建需要安装上游导航包依赖。如果 small_gicp 的 FetchContent 无法访问 GitHub，可在相应构建命令中追加 `-DFETCHCONTENT_SOURCE_DIR_SMALL_GICP=/path/to/local/small_gicp`，替换为已有源码的绝对路径。新终端从仓库根目录执行 `source source_all.bash`；该脚本也兼容本机 `gazebo/` 与 `sentry_nav/` 并列的布局。
 
-另外两台 RM25 默认关闭；要启用时，修改 `src/rmu_gazebo_simulator/rmu_gazebo_simulator/config/gz_world.yaml` 中相应机器人的 `spawn: true`，并重建仿真包。哨兵默认出生点为 `x=-5.3, y=3.0, yaw=-pi/2`。
+该入口自行生成两车，不使用 `gz_world.yaml` 的机器人列表。哨兵出生点为 `(-5.3, 3.0, 0.3), yaw=-pi/2`，手动车为 `(5.3, -3.0, 0.3), yaw=0`。不要同时运行原始 `rmu_gazebo_simulator bringup_sim.launch.py` 或叠加第二个场景。默认生成延迟为 25 秒，等待模型落地和定位、Nav2 激活后再发送目标。
+
+另开终端，从仓库根目录加载环境后控制手动车：
+
+```bash
+source source_all.bash
+ros2 run teleop_twist_keyboard teleop_twist_keyboard \
+  --ros-args -r cmd_vel:=/rm25_robot1/cmd_vel
+```
+
+`k` 停车；键盘指令断流默认 1 秒后由仿真网关输出零速度。该命令不控制自动哨兵。若未安装键盘工具，安装 `ros-humble-teleop-twist-keyboard`。
+
+显式调试或对比时，先退出当前场景，再用同一入口增加 `localization:=ground_truth` 或 `planner_plugin:=nav2_theta_star_planner/ThetaStarPlanner`。YAstar 源码在根工作区 `src/pb2025_sentry_nav/tdt_yastar_planner/`，必须先构建并加载根工作区，再构建 overlay。插件基于 Nav2 已膨胀的二维 costmap，未知区域默认不可通行；不包含 TDT 的 Kinodynamic A* 或 MinimumSnap。导航行为树以 3 Hz 重规划，失败后停车、等待 1 秒并有界重试，不执行自动旋转或倒车。
 
 ### 建图、地图与坐标
 
 纯 3D 建图时不启动 Nav2 或 small_gicp：
 
 ```bash
-ros2 launch sentry_sim_bringup bringup_sentry_simulation_launch.py \
-  localization:=lio slam:=True spin_speed:=0.0 x:=0 y:=0 yaw:=0
+ros2 launch sentry_sim_bringup dual_sentry_simulation_launch.py \
+  localization:=lio slam:=True spin_speed:=0.0
 ```
 
-等待落地和 LIO 初始化后，用 `/cmd_vel` 手动采集。正常 Ctrl+C 时 Point-LIO 尝试保存 `sentry_nav/src/pb2025_sentry_nav/point_lio/PCD/scans.pcd`。该目录属于本地采集输出；保存成功不代表地图质量合格。
+等待落地和 LIO 初始化后，用 `/sentry_robot1/cmd_vel_chassis` 手动采集，例如将键盘命令重映射到该话题。正常 Ctrl+C 时 Point-LIO 尝试保存 `sentry_nav/src/pb2025_sentry_nav/point_lio/PCD/scans.pcd`。该目录属于本地采集输出；保存成功不代表地图质量合格。
 
 运行先验为 `sentry_nav/src/sentry_sim_bringup/maps/diting_3v3_field_mapped.pcd`，含 242,239 个点，来自传感器建图原始结果的体素降采样，保留原始 camera_init 坐标。约 167 MiB 的 `diting_3v3_field_mapped_raw.pcd` 保留在采集机器上，不随仓库分发。原有 STL 采样 `diting_3v3_field.pcd` 仅作几何对照，二维导航地图仍为同目录的 PGM/YAML。
 
 ```text
-map → odom → base_footprint → chassis
-                                ├── gimbal_yaw_fake
-                                └── gimbal_yaw_odom → gimbal_yaw → lidar_link
+map → sentry_robot1/odom → sentry_robot1/base_footprint → sentry_robot1/chassis
+                                                        ├── sentry_robot1/gimbal_yaw_fake
+                                                        └── sentry_robot1/gimbal_yaw_odom
+                                                              → sentry_robot1/gimbal_yaw
+                                                              → sentry_robot1/lidar_link
 ```
 
-雷达 `/livox/lidar` 经采样时刻的完整 TF 转到 `chassis`，再供 Point-LIO 使用；IMU 为 `/livox/imu`。Gazebo 整帧点云统一使用 `time=1 µs`，关闭体素时间混合；当前 Point-LIO 大批量测量分支使用逆方差权重，配置 `lidar_meas_cov: 1000.0`，`acc_norm: 9.8`。这些参数针对当前仿真输入，不直接作为实物雷达标定。
+Gazebo 原始点云 `/sentry_robot1/points_raw` 经适配生成 `/sentry_robot1/velodyne_points`；IMU 输入为 `/sentry_robot1/imu/data`。点云经采样时刻的完整 TF 转到 `sentry_robot1/chassis`，再供 Point-LIO 使用。Gazebo 整帧点云统一使用 `time=1 µs`，关闭体素时间混合；当前 Point-LIO 大批量测量分支使用逆方差权重，配置 `lidar_meas_cov: 1000.0`，`acc_norm: 9.8`。这些参数针对当前仿真输入，不直接作为实物雷达标定。
 
-局部、全局 costmap 使用经坐标转换的实时地形点云和标准 `ObstacleLayer`，按实际高度筛除地面；`/obstacle_scan` 同时保留。更新后的轮心为 `(±0.21152, ±0.24318, 0)`，轮胎碰撞包络约 0.391 m，故两种定位配置的 costmap 半径均为 **0.40 m**。
+局部、全局 costmap 使用从实时点云生成的 `/sentry_robot1/obstacle_scan` 和标准 `ObstacleLayer`。更新后的轮心为 `(±0.21152, ±0.24318, 0)`，轮胎碰撞包络约 0.391 m，故两种定位配置的 costmap 半径均为 **0.40 m**。这是导航包络，不修改模型碰撞几何。
 
 雷达仍装在哨兵云台 yaw 上，安装俯仰约 12°；对应 TF 平移为 `(0.15, -0.12, 0.0306)`。修改共用 RM25 后重新生成派生模型：
 
@@ -102,20 +116,21 @@ python3 sentry_nav/src/sentry_sim_bringup/models/generate_sentry_model.py
 ### 自旋控制
 
 ```bash
-ros2 topic pub --once -w 2 --keep-alive 1 /cmd_spin example_interfaces/msg/Float32 "{data: 3.14}"
-ros2 topic pub --once -w 2 --keep-alive 1 /cmd_spin example_interfaces/msg/Float32 "{data: 0.0}"
+ros2 topic pub --once -w 2 --keep-alive 1 /sentry_robot1/cmd_spin example_interfaces/msg/Float32 "{data: 3.14}"
+ros2 topic pub --once -w 2 --keep-alive 1 /sentry_robot1/cmd_spin example_interfaces/msg/Float32 "{data: 0.0}"
 ```
 
-启动参数 `spin_speed:=3.14` 可开启自旋。网关等待 LIO 输出后允许执行，角加减速度限制为 1 rad/s²，从 3.14 rad/s 停转约需 3 秒。云台对地稳向读取 IMU 和关节反馈；`gimbal_world_lock:=False` 可关闭。
+启动参数 `spin_speed` 默认 3.14 rad/s；基础导航和动态障碍验收建议显式传入 `spin_speed:=0.0`。LIO 网关等待里程计后允许执行，非零角速度变化限制为 1 rad/s²，收到零角速度则立即置零。云台对地稳向读取 IMU 和关节反馈；`gimbal_world_lock:=False` 可关闭。该就绪检查仅检查里程计到达，不代表 GICP 匹配质量保护；手动初值及定位保护逻辑本次未修改。
 
 ### Foxglove 与运行状态
 
 ```bash
-ros2 run rviz2 rviz2 -d "$(ros2 pkg prefix pb2025_nav_bringup)/share/pb2025_nav_bringup/rviz/nav2_default_view.rviz" --ros-args -p use_sim_time:=true
+# use_rviz:=True 已加载相同仿真专用 RViz 配置；手动打开时使用：
+ros2 run rviz2 rviz2 -d "$(ros2 pkg prefix pb2025_nav_bringup)/share/pb2025_nav_bringup/rviz/nav2_default_view.rviz" --ros-args -r __ns:=/sentry_robot1 -p use_sim_time:=true
 ros2 launch foxglove_bridge foxglove_bridge_launch.xml use_sim_time:=true
-ros2 lifecycle get /controller_server
-ros2 topic hz /odometry
-ros2 run tf2_ros tf2_echo map chassis
+ros2 lifecycle get /sentry_robot1/controller_server
+ros2 topic hz /sentry_robot1/odometry
+ros2 run tf2_ros tf2_echo map sentry_robot1/chassis
 ```
 
 Foxglove 连接 `ws://localhost:8765`。完整的本机动态验收结论、最新模型更新后的复验范围，见 [2026-10-22 联调记录](docs/validation/2026-10-22.md)。重启前退出旧启动实例，避免重复节点和仿真时钟回跳。

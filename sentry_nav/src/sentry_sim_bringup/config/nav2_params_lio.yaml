@@ -1,6 +1,7 @@
+# Sensor localization from remote 5a1888d; local Nav2 tuning and recovery retained.
 ign_sim_pointcloud_tool:
   ros__parameters:
-    pcd_topic: disabled_input
+    pcd_topic: livox/lidar
     n_scan: 32
     horizon_scan: 1875
     ang_bottom: 7.0
@@ -12,7 +13,6 @@ point_lio:
     check_satu: true
     init_map_size: 10
     point_filter_num: 1
-    # Preserve one equal-time batch for the instantaneous Gazebo scan.
     space_down_sample: false
     filter_size_surf: 0.02
     filter_size_map: 0.15
@@ -20,7 +20,7 @@ point_lio:
     runtime_pos_log_enable: false
     common:
       lid_topic: velodyne_points
-      imu_topic: livox/imu
+      imu_topic: /imu/data
       con_frame: false
       con_frame_num: 1
       cut_frame: false
@@ -45,8 +45,6 @@ point_lio:
       satu_acc: 30.0
       satu_gyro: 35.0
       acc_norm: 9.8
-      # This fork uses inverse variance for batches >= 30 points.
-      # 1000 corresponds to variance 0.001; see lio-batch-noise-diagnosis.md.
       lidar_meas_cov: 1000.0
       acc_cov_output: 500.0
       gyr_cov_output: 1000.0
@@ -155,13 +153,14 @@ terrain_analysis_ext:
 fake_vel_transform:
   ros__parameters:
     use_sim_time: true
-    odom_topic: odometry
+    odom_topic: /odometry
+    local_plan_topic: /local_plan
     robot_base_frame: chassis
     fake_robot_base_frame: gimbal_yaw_fake
-    input_cmd_vel_topic: cmd_vel_nav2_result
-    output_cmd_vel_topic: cmd_vel
-    cmd_spin_topic: cmd_spin
-    init_spin_speed: 0.0
+    input_cmd_vel_topic: /cmd_vel_nav2_result
+    output_cmd_vel_topic: /cmd_vel
+    cmd_spin_topic: /cmd_spin
+    init_spin_speed: 3.14
 small_gicp_relocalization:
   ros__parameters:
     use_sim_time: true
@@ -186,7 +185,7 @@ pointcloud_to_laserscan:
   ros__parameters:
     use_sim_time: true
     target_frame: gimbal_yaw_fake
-    min_height: 0.15
+    min_height: 0.0
     max_height: 1.0
     min_intensity: 0.0
     max_intensity: 100.0
@@ -262,8 +261,8 @@ bt_navigator:
     bt_loop_duration: 10
     default_server_timeout: 100
     wait_for_service_timeout: 1000
-    default_nav_to_pose_bt_xml: $(find-pkg-share pb2025_nav_bringup)/behavior_trees/navigate_to_pose_w_replanning_and_recovery.xml
-    default_nav_through_poses_bt_xml: $(find-pkg-share pb2025_nav_bringup)/behavior_trees/navigate_through_poses_w_replanning_and_recovery.xml
+    default_nav_to_pose_bt_xml: $(find-pkg-share sentry_sim_bringup)/behavior_trees/navigate_to_pose_w_replanning_and_recovery.xml
+    default_nav_through_poses_bt_xml: $(find-pkg-share sentry_sim_bringup)/behavior_trees/navigate_through_poses_w_replanning_and_recovery.xml
     plugin_lib_names:
     - nav2_compute_path_to_pose_action_bt_node
     - nav2_compute_path_through_poses_action_bt_node
@@ -293,7 +292,6 @@ bt_navigator:
     - nav2_round_robin_node_bt_node
     - nav2_transform_available_condition_bt_node
     - nav2_time_expired_condition_bt_node
-    - nav2_path_expiring_timer_condition
     - nav2_distance_traveled_condition_bt_node
     - nav2_single_trigger_bt_node
     - nav2_goal_updated_controller_bt_node
@@ -320,7 +318,7 @@ controller_server:
     min_x_velocity_threshold: 0.001
     min_y_velocity_threshold: 0.5
     min_theta_velocity_threshold: 0.001
-    failure_tolerance: 0.3
+    failure_tolerance: 0.6
     progress_checker_plugins:
     - progress_checker
     goal_checker_plugins:
@@ -355,10 +353,10 @@ controller_server:
       use_interpolation: false
       use_rotate_to_heading: false
       use_rotate_to_heading_treshold: 0.1
-      min_approach_linear_velocity: 0.18
+      min_approach_linear_velocity: 0.5
       approach_velocity_scaling_dist: 1.0
-      v_linear_min: -0.6
-      v_linear_max: 0.6
+      v_linear_min: -2.5
+      v_linear_max: 2.5
       v_angular_min: -3.0
       v_angular_max: 3.0
       curvature_min: 0.4
@@ -371,7 +369,7 @@ local_costmap:
   local_costmap:
     ros__parameters:
       use_sim_time: true
-      update_frequency: 5.0
+      update_frequency: 10.0
       publish_frequency: 5.0
       global_frame: odom
       robot_base_frame: gimbal_yaw_fake
@@ -379,8 +377,7 @@ local_costmap:
       width: 5
       height: 5
       resolution: 0.05
-      # Cover the widened wheel collision geometry, including during spin.
-      robot_radius: 0.40
+      robot_radius: 0.4
       plugins:
       - static_layer
       - obstacle_layer
@@ -388,19 +385,45 @@ local_costmap:
       obstacle_layer:
         plugin: nav2_costmap_2d::ObstacleLayer
         enabled: true
-        observation_sources: terrain_map
-        terrain_map:
-          topic: /terrain_map
-          data_type: PointCloud2
-          sensor_frame: ''
+        observation_sources: scan
+        scan:
+          topic: /obstacle_scan
+          sensor_frame: gimbal_yaw_fake
+          data_type: LaserScan
           clearing: true
           marking: true
-          min_obstacle_height: 0.12
+          inf_is_valid: false
+          min_obstacle_height: -0.1
           max_obstacle_height: 2.0
-          obstacle_min_range: 0.2
-          obstacle_max_range: 9.5
+          raytrace_max_range: 5.0
           raytrace_min_range: 0.0
-          raytrace_max_range: 10.0
+          obstacle_max_range: 4.9
+          obstacle_min_range: 0.2
+      intensity_voxel_layer:
+        plugin: pb_nav2_costmap_2d::IntensityVoxelLayer
+        enabled: true
+        track_unknown_space: true
+        footprint_clearing_enabled: true
+        publish_voxel_map: false
+        combination_method: 1
+        mark_threshold: 0
+        origin_z: 0.0
+        unknown_threshold: 5
+        z_resolution: 0.05
+        z_voxels: 16
+        min_obstacle_height: 0.0
+        max_obstacle_height: 2.0
+        min_obstacle_intensity: 0.1
+        max_obstacle_intensity: 2.0
+        observation_sources: terrain_map
+        terrain_map:
+          data_type: PointCloud2
+          topic: <robot_namespace>/terrain_map
+          sensor_frame: front_mid360
+          min_obstacle_height: 0.0
+          max_obstacle_height: 2.0
+          obstacle_max_range: 5.0
+          obstacle_min_range: 0.2
       static_layer:
         plugin: nav2_costmap_2d::StaticLayer
         map_subscribe_transient_local: true
@@ -417,8 +440,7 @@ global_costmap:
       publish_frequency: 2.0
       global_frame: map
       robot_base_frame: gimbal_yaw_fake
-      # Cover the widened wheel collision geometry, including during spin.
-      robot_radius: 0.40
+      robot_radius: 0.4
       resolution: 0.05
       plugins:
       - static_layer
@@ -427,19 +449,45 @@ global_costmap:
       obstacle_layer:
         plugin: nav2_costmap_2d::ObstacleLayer
         enabled: true
-        observation_sources: terrain_map_ext
-        terrain_map_ext:
-          topic: /terrain_map_ext
-          data_type: PointCloud2
-          sensor_frame: ''
+        observation_sources: scan
+        scan:
+          topic: /obstacle_scan
+          sensor_frame: gimbal_yaw_fake
+          data_type: LaserScan
           clearing: true
           marking: true
-          min_obstacle_height: 0.12
+          inf_is_valid: false
+          min_obstacle_height: -0.1
           max_obstacle_height: 2.0
-          obstacle_min_range: 0.2
-          obstacle_max_range: 9.5
-          raytrace_min_range: 0.0
           raytrace_max_range: 10.0
+          raytrace_min_range: 0.0
+          obstacle_max_range: 9.9
+          obstacle_min_range: 0.2
+      intensity_voxel_layer:
+        plugin: pb_nav2_costmap_2d::IntensityVoxelLayer
+        enabled: true
+        track_unknown_space: true
+        footprint_clearing_enabled: true
+        publish_voxel_map: false
+        combination_method: 1
+        mark_threshold: 0
+        origin_z: 0.0
+        unknown_threshold: 5
+        z_resolution: 0.05
+        z_voxels: 16
+        min_obstacle_height: 0.0
+        max_obstacle_height: 2.0
+        min_obstacle_intensity: 0.1
+        max_obstacle_intensity: 2.0
+        observation_sources: terrain_map_ext
+        terrain_map_ext:
+          data_type: PointCloud2
+          topic: <robot_namespace>/terrain_map_ext
+          sensor_frame: front_mid360
+          min_obstacle_height: 0.0
+          max_obstacle_height: 2.0
+          obstacle_max_range: 10.0
+          obstacle_min_range: 0.2
       static_layer:
         plugin: nav2_costmap_2d::StaticLayer
         map_subscribe_transient_local: true
@@ -465,7 +513,7 @@ planner_server:
     planner_plugins:
     - GridBased
     GridBased:
-      plugin: nav2_theta_star_planner/ThetaStarPlanner
+      plugin: tdt_yastar_planner/YastarPlanner
       how_many_corners: 8
       w_euc_cost: 1.0
       w_traversal_cost: 10.0

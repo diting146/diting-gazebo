@@ -53,9 +53,9 @@ def _wrap_angle(angle):
 class LocalizationErrorMonitor(Node):
     """Compare the TF pose with the reference pose at a fixed rate."""
 
-    def __init__(self):
+    def __init__(self, **kwargs):
         """Read parameters and start the TF listener."""
-        super().__init__('localization_error_monitor')
+        super().__init__('localization_error_monitor', **kwargs)
 
         self._map_frame = self.declare_parameter('map_frame', 'map').value
         self._robot_frame = self.declare_parameter(

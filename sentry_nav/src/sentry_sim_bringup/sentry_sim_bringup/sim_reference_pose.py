@@ -32,9 +32,9 @@ from rclpy.signals import SignalHandlerOptions
 class SimReferencePose(Node):
     """Mirror the simulator pose onto the read-only reference topics."""
 
-    def __init__(self):
+    def __init__(self, **kwargs):
         """Read parameters and create the reference publishers."""
-        super().__init__('sim_reference_pose')
+        super().__init__('sim_reference_pose', **kwargs)
 
         odom_input = self.declare_parameter(
             'odom_input', '/sentry_robot1/odometry_raw'

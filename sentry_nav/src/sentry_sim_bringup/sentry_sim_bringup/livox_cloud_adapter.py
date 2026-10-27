@@ -68,9 +68,9 @@ def _quaternion_to_matrix(x, y, z, w):
 class LivoxCloudAdapter(Node):
     """Republish the simulated LiDAR cloud in the chassis frame."""
 
-    def __init__(self):
+    def __init__(self, **kwargs):
         """Read parameters and create the cloud pipeline."""
-        super().__init__('livox_cloud_adapter')
+        super().__init__('livox_cloud_adapter', **kwargs)
 
         input_topic = self.declare_parameter(
             'input_topic', '/livox/lidar'

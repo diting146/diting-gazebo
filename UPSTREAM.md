@@ -61,3 +61,22 @@ Model geometry follows collaborator commit `ca4d876`, including wider wheel
 positions and the raised, pitched lidar. Local costmap radii are 0.40 m to cover
 the widened wheel collision envelope. Earlier dynamic acceptance measurements
 precede that geometry update; see `docs/validation/2026-10-22.md` for the scope.
+
+## 2026-10-27 dual-robot YAstar integration
+
+`src/pb2025_sentry_nav/tdt_yastar_planner` imports the two-dimensional YAstar
+implementation from the audited TDT Nav Kit source snapshot (`src/YAstar`).
+The original upstream commit was not recorded with that snapshot. The imported
+algorithm is copyright 2026 Rongxuan Ye and BoLin Li under MIT; the Nav2 adapter
+is project code under Apache-2.0. The complete MIT notice is retained in
+`tdt_yastar_planner/TDT_LICENSE_NOTICE.md`. Local adaptations add a Nav2 costmap
+snapshot, bounded search, path headers/headings, and regression coverage; the
+kinodynamic planner and MinimumSnap are not imported.
+
+The custom simulation integration now uses one autonomous sentry and one
+manual obstacle robot, namespaced sensor/control wiring, simulation command
+watchdogs, and shared wait/replan behavior trees. Only the integration package
+and the new planner are published in this change; existing estimator, model,
+and `fake_vel_transform` source is retained from the remote baseline. Validation
+scope and remaining differences from the development workspace are recorded in
+`docs/validation/2026-10-27.md`.

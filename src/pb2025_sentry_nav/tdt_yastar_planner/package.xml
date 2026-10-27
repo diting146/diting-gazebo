@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>tdt_yastar_planner</name>
+  <version>0.1.0</version>
+  <description>Bounded two-dimensional TDT YAstar Nav2 global planner.</description>
+  <maintainer email="maintainer@example.invalid">Diting navigation maintainers</maintainer>
+  <license>Apache-2.0</license>
+  <license>MIT</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>eigen</depend>
+  <depend>geometry_msgs</depend>
+  <depend>nav2_core</depend>
+  <depend>nav2_costmap_2d</depend>
+  <depend>nav_msgs</depend>
+  <depend>pluginlib</depend>
+  <depend>rclcpp</depend>
+  <depend>rclcpp_lifecycle</depend>
+  <depend>tf2_ros</depend>
+  <depend>tf2_geometry_msgs</depend>
+  <test_depend>ament_cmake_gtest</test_depend>
+  <export>
+    <build_type>ament_cmake</build_type>
+    <nav2_core plugin="${prefix}/tdt_yastar_planner.xml" />
+  </export>
+</package>

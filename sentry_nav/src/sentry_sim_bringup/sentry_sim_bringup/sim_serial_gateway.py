@@ -33,7 +33,7 @@ import math
 import rclpy
 from example_interfaces.msg import Float32
 from geometry_msgs.msg import Twist
-from nav_msgs.msg import Odometry
+from rclpy.clock import Clock, ClockType
 from rclpy.node import Node
 from rclpy.signals import SignalHandlerOptions
 
@@ -41,8 +41,8 @@ from rclpy.signals import SignalHandlerOptions
 class SimSerialGateway(Node):
     """Republish ROS commands and use the configured idle spin on input timeout."""
 
-    def __init__(self):
-        super().__init__('sim_serial_gateway')
+    def __init__(self, **kwargs):
+        super().__init__('sim_serial_gateway', **kwargs)
 
         input_topic = self.declare_parameter('input_topic', 'cmd_vel').value
         output_topic = self.declare_parameter(
@@ -61,60 +61,27 @@ class SimSerialGateway(Node):
         self._idle_spin_speed = float(
             self.declare_parameter('idle_spin_speed', 0.0).value
         )
-        self._angular_acceleration_limit = float(self.declare_parameter(
-            'angular_acceleration_limit', 1.0).value)
-        self._last_output_angular = 0.0
-        self._last_output_ns = None
         self._timeout_seconds = timeout_ms / 1000.0
         self._last_received_ns = None
-        self._require_localization = bool(self.declare_parameter(
-            'require_localization', False).value)
-        self._localization_since_ns = None
-        self._localization_last_ns = None
-        self._ready_subscription = self.create_subscription(
-            Odometry, '/odometry', self._on_localization, 10)
         self._publisher = self.create_publisher(Twist, output_topic, 10)
         self._subscription = self.create_subscription(
             Twist, input_topic, self._on_twist, 10
         )
-        self._spin_subscription = self.create_subscription(
-            Float32, '/cmd_spin', self._on_spin, 10
+        spin_topic = self.declare_parameter('spin_topic', '/cmd_spin').value
+        self._spin_subscription = (
+            self.create_subscription(Float32, spin_topic, self._on_spin, 10)
+            if spin_topic else None
         )
+        # Command expiry is elapsed real time, including while /clock is paused.
+        self._watchdog_clock = Clock(clock_type=ClockType.STEADY_TIME)
         self._timer = self.create_timer(
-            1.0 / publish_rate_hz, self._on_timer
+            1.0 / publish_rate_hz, self._on_timer, clock=self._watchdog_clock
         )
 
         self.get_logger().info(
             f'sim_serial_gateway: {input_topic} -> {output_topic} '
             f'(timeout {timeout_ms} ms)'
         )
-
-    def _publish_command(self, msg):
-        """Ramp spin commands rather than applying a wheel-speed step."""
-        now = self.get_clock().now().nanoseconds
-        dt = .02 if self._last_output_ns is None else max(0., (now - self._last_output_ns) * 1e-9)
-        self._last_output_ns = now
-        if self._angular_acceleration_limit > 0.:
-            step = self._angular_acceleration_limit * min(dt, .2)
-            delta = max(-step, min(step, msg.angular.z - self._last_output_angular))
-            msg.angular.z = self._last_output_angular + delta
-        self._last_output_angular = msg.angular.z
-        self._publisher.publish(msg)
-
-    def _on_localization(self, msg):
-        now = self.get_clock().now().nanoseconds
-        if self._localization_since_ns is None:
-            self._localization_since_ns = now
-        self._localization_last_ns = now
-
-    def _localization_ready(self):
-        if not self._require_localization:
-            return True
-        if self._localization_since_ns is None:
-            return False
-        now = self.get_clock().now().nanoseconds
-        return (now - self._localization_since_ns > 2_000_000_000
-                and now - self._localization_last_ns < 1_000_000_000)
 
     def _on_spin(self, msg):
         """Use the same spin request as fake_vel_transform during idle."""
@@ -127,23 +94,21 @@ class SimSerialGateway(Node):
 
     def _on_twist(self, msg):
         """Forward an incoming command and remember when it arrived."""
-        self._last_received_ns = self.get_clock().now().nanoseconds
-        self._publish_command(msg if self._localization_ready() else Twist())
+        self._last_received_ns = self._watchdog_clock.now().nanoseconds
+        self._publisher.publish(msg)
 
     def _on_timer(self):
         """Clear translation and apply the configured spin while input is silent."""
         idle_command = Twist()
-        idle_command.angular.z = (
-            self._idle_spin_speed if self._localization_ready() else 0.0
-        )
-        now_ns = self.get_clock().now().nanoseconds
+        idle_command.angular.z = self._idle_spin_speed
+        now_ns = self._watchdog_clock.now().nanoseconds
         if self._last_received_ns is None:
-            self._publish_command(idle_command)
+            self._publisher.publish(idle_command)
             return
 
         age_seconds = (now_ns - self._last_received_ns) * 1e-9
         if age_seconds >= self._timeout_seconds:
-            self._publish_command(idle_command)
+            self._publisher.publish(idle_command)
 
 
 def main(args=None):

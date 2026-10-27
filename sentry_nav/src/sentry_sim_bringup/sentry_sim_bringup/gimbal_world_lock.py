@@ -19,7 +19,7 @@ import math
 import rclpy
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
-from sensor_msgs.msg import Imu, JointState
+from sensor_msgs.msg import JointState
 from std_msgs.msg import Float64
 
 
@@ -60,14 +60,7 @@ class GimbalWorldLock(Node):
         self._world_yaw_target = None
 
         self._command_publisher = self.create_publisher(Float64, command_topic, 10)
-        self._feedback_source = self.declare_parameter('feedback_source', 'imu').value
-        imu_topic = self.declare_parameter('imu_topic', '/livox/imu').value
-        if self._feedback_source == 'imu':
-            self.create_subscription(Imu, imu_topic, self._on_imu, 10)
-        elif self._feedback_source == 'odometry':
-            self.create_subscription(Odometry, odom_topic, self._on_odometry, 10)
-        else:
-            raise ValueError('feedback_source must be imu or odometry')
+        self.create_subscription(Odometry, odom_topic, self._on_odometry, 10)
         self.create_subscription(
             JointState, joint_states_topic, self._on_joint_states, 10
         )
@@ -91,10 +84,6 @@ class GimbalWorldLock(Node):
                 f'latched gimbal world yaw at '
                 f'{self._world_yaw_target:.3f} rad'
             )
-
-    def _on_imu(self, msg):
-        self._chassis_yaw = _yaw_from_quaternion(msg.orientation)
-        self._try_latch_world_yaw()
 
     def _on_odometry(self, msg):
         self._chassis_yaw = _yaw_from_quaternion(msg.pose.pose.orientation)

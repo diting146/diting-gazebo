@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+<library path="tdt_yastar_planner">
+  <class name="tdt_yastar_planner/YastarPlanner" type="tdt_yastar_planner::YastarPlanner" base_class_type="nav2_core::GlobalPlanner">
+    <description>Bounded 2-D YAstar-style grid planner with cost-aware expansion.</description>
+  </class>
+</library>
