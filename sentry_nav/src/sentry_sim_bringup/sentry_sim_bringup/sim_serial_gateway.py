@@ -58,6 +58,7 @@ class SimSerialGateway(Node):
         if publish_rate_hz <= 0.0:
             raise ValueError('publish_rate_hz must be positive')
 
+        self._business_mode = bool(self.declare_parameter('business_mode', False).value)
         self._idle_spin_speed = float(
             self.declare_parameter('idle_spin_speed', 0.0).value
         )
@@ -118,9 +119,13 @@ class SimSerialGateway(Node):
 
     def _on_spin(self, msg):
         """Use the same spin request as fake_vel_transform during idle."""
+        if self._business_mode:
+            self._idle_spin_speed = 0.0
+            return
         if not math.isfinite(msg.data):
             self.get_logger().warning('Ignoring non-finite spin speed')
             return
+        self._business_mode = bool(self.declare_parameter('business_mode', False).value)
         self._idle_spin_speed = float(msg.data)
         self.get_logger().info(f'Idle spin speed: {self._idle_spin_speed:.3f} rad/s')
         self._on_timer()
@@ -134,7 +139,7 @@ class SimSerialGateway(Node):
         """Clear translation and apply the configured spin while input is silent."""
         idle_command = Twist()
         idle_command.angular.z = (
-            self._idle_spin_speed if self._localization_ready() else 0.0
+            self._idle_spin_speed if self._localization_ready() and not self._business_mode else 0.0
         )
         now_ns = self.get_clock().now().nanoseconds
         if self._last_received_ns is None:

@@ -1,0 +1,44 @@
+{
+  "passed": false,
+  "route": {
+    "world": "2027RMUL",
+    "frame": "map",
+    "entry": {
+      "x": -4.1,
+      "y": 3.46,
+      "yaw": 0.0
+    },
+    "exit": {
+      "x": -1.0,
+      "y": 3.46,
+      "yaw": 0.0
+    },
+    "center": {
+      "x": 0.0,
+      "y": 0.0,
+      "yaw": 0.0
+    },
+    "validation_status": "geometry_preliminary_runtime_pending"
+  },
+  "model_changed": false,
+  "localization": "lio",
+  "runs": [],
+  "error": "Expected only velocity_arbiter to publish chassis commands",
+  "cmd_vel_publishers": [
+    "_NODE_NAME_UNKNOWN_"
+  ],
+  "owner_events": [
+    {
+      "time": 51495.221061658,
+      "owner": "stop",
+      "generation": 0,
+      "reason": "Startup stop"
+    },
+    {
+      "time": 51495.248474446,
+      "owner": "stop",
+      "generation": 1,
+      "reason": "Operator stop"
+    }
+  ]
+}

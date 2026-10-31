@@ -1,0 +1,71 @@
+{
+  "lidar_visual_upper_model": 0.19489105256894698,
+  "tunnel_floor_z_max": 0.10047995299100876,
+  "lidar_world_top_conservative": 0.37117318219384854,
+  "field_mesh": "/data/engineering/ros/rm_sentry_nav_ws/gazebo/src/rmu_gazebo_simulator/rmu_gazebo_simulator/resource/models/2027RMUL/meshes/2027RMUL.stl",
+  "robot_model": "/data/engineering/ros/rm_sentry_nav_ws/sentry_nav/src/sentry_sim_bringup/models/sentry_rm25/model.sdf",
+  "robot_collision_lower_model": [
+    -0.28756137150507544,
+    -0.26578730146619084,
+    -0.07580217663389283
+  ],
+  "robot_collision_upper_model": [
+    0.2874539821535071,
+    0.26578730146619084,
+    0.12000000000000001
+  ],
+  "robot_collision_height_from_lowest": 0.19580217663389282,
+  "robot_collision_width": 0.5315746029323817,
+  "passage_probe_xy": [
+    [
+      -2.6500000953674316,
+      3.0999999046325684
+    ],
+    [
+      -2.6500000953674316,
+      3.4600000381469727
+    ],
+    [
+      -2.6500000953674316,
+      3.819999933242798
+    ],
+    [
+      -2.5,
+      3.0999999046325684
+    ],
+    [
+      -2.5,
+      3.4600000381469727
+    ],
+    [
+      -2.5,
+      3.819999933242798
+    ],
+    [
+      -2.3499999046325684,
+      3.0999999046325684
+    ],
+    [
+      -2.3499999046325684,
+      3.4600000381469727
+    ],
+    [
+      -2.3499999046325684,
+      3.819999933242798
+    ]
+  ],
+  "first_surface_above_z_012": [
+    0.3499799072742462,
+    0.3499799072742462,
+    0.3499799072742462,
+    0.3499799072742462,
+    0.3499799072742462,
+    0.3499799072742462,
+    0.3499799072742462,
+    0.3499799072742462,
+    0.3499799072742462
+  ],
+  "note": "Primitive collision AABBs; cylinder bounds are conservative. No visual geometry clearance claim.",
+  "conservative_envelope_difference": -0.021193274919602323,
+  "interpretation": "Conservative analytic envelope only; not a measured collision result. User confirmed existing model passage and requested no hardware changes. Keep current mount and validate runtime."
+}

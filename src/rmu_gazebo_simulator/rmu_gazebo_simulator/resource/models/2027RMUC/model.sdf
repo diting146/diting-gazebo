@@ -1,0 +1,44 @@
+<?xml version="1.0"?>
+<sdf version="1.7">
+  <model name="2027RMUC">
+    <static>true</static>
+    <link name="link">
+      <!-- Source mesh: 带雷达基座.STL (binary STL, units = millimetres, Z-up).
+           Measured bbox (mm): X 0..32135, Y 0..16003, Z 1000..4810.
+           The 28 m x 16 m arena occupies X 4150..32135; the separate radar
+           base sits at X ~1500..2700, beside the arena's left wall. The whole
+           export is lifted 1 m in Z relative to the earlier arena-only mesh.
+           Transform: scale x0.001 (mm->m), translate so the arena is centred
+           on the origin with its nominal driving floor at z = 0:
+             world_x = 0.001*X - 18.1400 -> arena X in [-14.0, 14.0]
+             world_y = 0.001*Y - 8.0016  -> Y in [-8.0, 8.0]
+             world_z = 0.001*Z - 1.2000  -> nominal floor at z=0,
+                                            radar base top near z=3.6
+           The arena floor is not perfectly flat (raised central highland,
+           ring highlands, ramps and corner bases occupy 0.0..0.5 m). -->
+      <pose>-18.1400 -8.0016 -1.2000 0 0 0</pose>
+      <collision name="collision">
+        <geometry>
+          <mesh>
+            <uri>model://2027RMUC/meshes/2027RMUC.stl</uri>
+            <scale>0.001 0.001 0.001</scale>
+          </mesh>
+        </geometry>
+      </collision>
+      <visual name="visual">
+        <geometry>
+          <mesh>
+            <uri>model://2027RMUC/meshes/2027RMUC.stl</uri>
+            <scale>0.001 0.001 0.001</scale>
+          </mesh>
+        </geometry>
+        <!-- STL carries no material, so Gazebo renders it flat white by default. -->
+        <material>
+          <ambient>0.3 0.3 0.32 1</ambient>
+          <diffuse>0.55 0.56 0.6 1</diffuse>
+          <specular>0.08 0.08 0.08 1</specular>
+        </material>
+      </visual>
+    </link>
+  </model>
+</sdf>

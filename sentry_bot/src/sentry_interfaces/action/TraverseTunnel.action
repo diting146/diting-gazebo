@@ -1,0 +1,10 @@
+geometry_msgs/PoseStamped entry
+geometry_msgs/PoseStamped exit
+---
+bool success
+string message
+---
+string stage
+float32 lateral_error
+float32 heading_error
+float32 remaining

@@ -1,0 +1,38 @@
+opening 1 entry
+opening 1 tunnel:align
+opening 1 tunnel:follow
+opening 1 tunnel:waiting_data
+opening 1 tunnel:follow
+opening 1 tunnel:waiting_data
+opening 1 tunnel:follow
+opening 1 tunnel:waiting_data
+opening 1 tunnel:follow
+opening 1 tunnel:waiting_data
+opening 1 tunnel:follow
+opening 1 tunnel:waiting_data
+opening 1 tunnel:follow
+opening 1 tunnel:waiting_data
+opening 1 tunnel:follow
+opening 1 tunnel:settle
+opening 1 center
+PASS opening 1 lateral 0.01072375662624836 wall_clearance 0.1221222500813956
+FAILED [Errno 2] No such file or directory: '/data/engineering/ros/rm_sentry_nav_ws/sentry_bot/validation/sentry_bot/validation/ground_truth_throttled.json'
+Traceback (most recent call last):
+  File "/data/engineering/ros/rm_sentry_nav_ws/sentry_bot/tools/validate_runtime.py", line 372, in <module>
+    main()
+  File "/data/engineering/ros/rm_sentry_nav_ws/sentry_bot/tools/validate_runtime.py", line 362, in main
+    output.write_text(json.dumps(report, indent=2) + "\n")
+  File "/usr/lib/python3.10/pathlib.py", line 1154, in write_text
+    with self.open(mode='w', encoding=encoding, errors=errors, newline=newline) as f:
+  File "/usr/lib/python3.10/pathlib.py", line 1119, in open
+    return self._accessor.open(self, mode, buffering, encoding, errors,
+FileNotFoundError: [Errno 2] No such file or directory: '/data/engineering/ros/rm_sentry_nav_ws/sentry_bot/validation/sentry_bot/validation/ground_truth_throttled.json'
+Exception in thread Thread-1 (spin):
+Traceback (most recent call last):
+Fatal Python error: _enter_buffered_busy: could not acquire lock for <_io.BufferedWriter name='<stderr>'> at interpreter shutdown, possibly due to daemon threads
+Python runtime state: finalizing (tstate=0x0000561202e61330)
+
+Current thread 0x000076d90f809000 (most recent call first):
+  <no Python frame>
+
+Extension modules: yaml._yaml, numpy.core._multiarray_umath, numpy.core._multiarray_tests, numpy.linalg._umath_linalg, numpy.fft._pocketfft_internal, numpy.random._common, numpy.random.bit_generator, numpy.random._bounded_integers, numpy.random._mt19937, numpy.random.mtrand, numpy.random._philox, numpy.random._pcg64, numpy.random._sfc64, numpy.random._generator, rcl_interfaces.rcl_interfaces_s__rosidl_typesupport_c, builtin_interfaces.builtin_interfaces_s__rosidl_typesupport_c, rosgraph_msgs.rosgraph_msgs_s__rosidl_typesupport_c, std_msgs.std_msgs_s__rosidl_typesupport_c, sentry_interfaces.sentry_interfaces_s__rosidl_typesupport_c, geometry_msgs.geometry_msgs_s__rosidl_typesupport_c, std_srvs.std_srvs_s__rosidl_typesupport_c, action_msgs.action_msgs_s__rosidl_typesupport_c, unique_identifier_msgs.unique_identifier_msgs_s__rosidl_typesupport_c, nav2_msgs.nav2_msgs_s__rosidl_typesupport_c, apt_pkg (total: 25)

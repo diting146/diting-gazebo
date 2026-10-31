@@ -1,0 +1,96 @@
+{
+  "passed": false,
+  "route": {
+    "world": "2027RMUL",
+    "frame": "map",
+    "entry": {
+      "x": -4.1,
+      "y": 3.46,
+      "yaw": 0.0
+    },
+    "exit": {
+      "x": -1.0,
+      "y": 3.46,
+      "yaw": 0.0
+    },
+    "center": {
+      "x": 0.0,
+      "y": 0.0,
+      "yaw": 0.0
+    },
+    "validation_status": "geometry_preliminary_runtime_pending"
+  },
+  "model_changed": false,
+  "localization": "ground_truth",
+  "runs": [
+    {
+      "kind": "opening",
+      "index": 1,
+      "success": false,
+      "stages": [
+        "entry"
+      ],
+      "max_follow_lateral_error": 0.0,
+      "max_follow_heading_error": 0.0,
+      "follow_samples": 0,
+      "min_reference_wall_clearance": null,
+      "reference_samples_in_tunnel": 0,
+      "last_reference": [
+        -4.167896970045976,
+        3.465961639720263,
+        -1.5708635621209732
+      ],
+      "last_stage": "entry",
+      "elapsed_wall": 5.177703367000504
+    }
+  ],
+  "error": "tunnel failed: All fields need to have the same datatype. Use `read_points()` otherwise.",
+  "cmd_vel_publishers": [
+    "_NODE_NAME_UNKNOWN_"
+  ],
+  "single_writer_matches_motion_state_participant": true,
+  "owner_events": [
+    {
+      "time": 52571.973784273,
+      "owner": "stop",
+      "generation": 0,
+      "reason": "Startup stop"
+    },
+    {
+      "time": 52572.302851527,
+      "owner": "stop",
+      "generation": 1,
+      "reason": "Requested stop"
+    },
+    {
+      "time": 52572.32280224,
+      "owner": "nav",
+      "generation": 1,
+      "reason": "Selected nav"
+    },
+    {
+      "time": 52576.142950395,
+      "owner": "stop",
+      "generation": 2,
+      "reason": "Requested stop"
+    },
+    {
+      "time": 52577.082548768,
+      "owner": "tunnel",
+      "generation": 2,
+      "reason": "Selected tunnel"
+    },
+    {
+      "time": 52577.162595162,
+      "owner": "stop",
+      "generation": 3,
+      "reason": "Operator stop"
+    },
+    {
+      "time": 52577.2028116,
+      "owner": "stop",
+      "generation": 4,
+      "reason": "Operator stop"
+    }
+  ]
+}

@@ -1,0 +1,242 @@
+{
+  "passed": true,
+  "route": {
+    "world": "2027RMUL",
+    "frame": "map",
+    "entry": {
+      "x": -4.1,
+      "y": 3.46,
+      "yaw": 0.0
+    },
+    "exit": {
+      "x": -1.0,
+      "y": 3.46,
+      "yaw": 0.0
+    },
+    "center": {
+      "x": 0.0,
+      "y": 0.0,
+      "yaw": 0.0
+    },
+    "validation_status": "geometry_preliminary_runtime_pending"
+  },
+  "model_changed": false,
+  "localization": "lio",
+  "runs": [
+    {
+      "kind": "opening",
+      "index": 1,
+      "success": true,
+      "stages": [
+        "entry",
+        "tunnel:align",
+        "tunnel:waiting_data",
+        "tunnel:align",
+        "tunnel:waiting_data",
+        "tunnel:align",
+        "tunnel:waiting_data",
+        "tunnel:align",
+        "tunnel:waiting_data",
+        "tunnel:align",
+        "tunnel:follow",
+        "tunnel:waiting_data",
+        "tunnel:follow",
+        "tunnel:waiting_data",
+        "tunnel:follow",
+        "tunnel:waiting_data",
+        "tunnel:follow",
+        "tunnel:waiting_data",
+        "tunnel:follow",
+        "tunnel:waiting_data",
+        "tunnel:follow",
+        "tunnel:waiting_data",
+        "tunnel:follow",
+        "tunnel:waiting_data",
+        "tunnel:follow",
+        "tunnel:settle",
+        "center"
+      ],
+      "max_follow_lateral_error": 0.019827188923954964,
+      "max_follow_heading_error": 0.027874844148755074,
+      "follow_samples": 345,
+      "min_reference_wall_clearance": 0.11011503346677931,
+      "reference_samples_in_tunnel": 3853,
+      "last_reference": [
+        -0.0166276615269987,
+        0.10047507156198739,
+        -0.006239458141068799
+      ],
+      "last_stage": "center",
+      "elapsed_wall": 39.59492601799866
+    },
+    {
+      "kind": "tunnel",
+      "index": 1,
+      "success": true,
+      "stages": [
+        "nav",
+        "align",
+        "waiting_data",
+        "align",
+        "follow",
+        "waiting_data",
+        "follow",
+        "waiting_data",
+        "follow",
+        "settle"
+      ],
+      "max_follow_lateral_error": 0.014978543855249882,
+      "max_follow_heading_error": 0.003940303809940815,
+      "follow_samples": 331,
+      "min_reference_wall_clearance": 0.11529880393997266,
+      "reference_samples_in_tunnel": 3758,
+      "last_reference": [
+        -0.999661034565992,
+        3.4766430886263007,
+        -0.001278519509639441
+      ],
+      "direction": "forward",
+      "last_stage": "settle",
+      "elapsed_wall": 51.560612726003455
+    },
+    {
+      "kind": "tunnel",
+      "index": 2,
+      "success": true,
+      "stages": [
+        "align",
+        "waiting_data",
+        "align",
+        "waiting_data",
+        "align",
+        "waiting_data",
+        "align",
+        "waiting_data",
+        "align",
+        "waiting_data",
+        "align",
+        "follow",
+        "waiting_data",
+        "follow",
+        "waiting_data",
+        "follow",
+        "waiting_data",
+        "follow",
+        "waiting_data",
+        "follow",
+        "waiting_data",
+        "follow",
+        "waiting_data",
+        "follow",
+        "waiting_data",
+        "follow",
+        "settle",
+        "waiting_data",
+        "settle"
+      ],
+      "max_follow_lateral_error": 0.013960697688162327,
+      "max_follow_heading_error": 0.024828441441059113,
+      "follow_samples": 347,
+      "min_reference_wall_clearance": 0.11375127987572897,
+      "reference_samples_in_tunnel": 3931,
+      "last_reference": [
+        -4.096449410509051,
+        3.4383474375139906,
+        3.139570973683422
+      ],
+      "direction": "reverse",
+      "last_stage": "settle",
+      "elapsed_wall": 46.45610334599769
+    }
+  ],
+  "error": null,
+  "cmd_vel_publishers": [
+    "velocity_arbiter"
+  ],
+  "owner_events": [
+    {
+      "time": 51642.24141211,
+      "owner": "stop",
+      "generation": 1,
+      "reason": "Operator stop"
+    },
+    {
+      "time": 51642.351254291,
+      "owner": "stop",
+      "generation": 2,
+      "reason": "Requested stop"
+    },
+    {
+      "time": 51642.372367347,
+      "owner": "nav",
+      "generation": 2,
+      "reason": "Selected nav"
+    },
+    {
+      "time": 51642.470953629,
+      "owner": "stop",
+      "generation": 3,
+      "reason": "Requested stop"
+    },
+    {
+      "time": 51642.490647912,
+      "owner": "tunnel",
+      "generation": 3,
+      "reason": "Selected tunnel"
+    },
+    {
+      "time": 51671.270321126,
+      "owner": "stop",
+      "generation": 4,
+      "reason": "Requested stop"
+    },
+    {
+      "time": 51671.290916319,
+      "owner": "nav",
+      "generation": 4,
+      "reason": "Selected nav"
+    },
+    {
+      "time": 51681.409649959,
+      "owner": "stop",
+      "generation": 5,
+      "reason": "Requested stop"
+    },
+    {
+      "time": 51682.472434791,
+      "owner": "nav",
+      "generation": 5,
+      "reason": "Selected nav"
+    },
+    {
+      "time": 51709.311957519,
+      "owner": "stop",
+      "generation": 6,
+      "reason": "Requested stop"
+    },
+    {
+      "time": 51709.990401121,
+      "owner": "tunnel",
+      "generation": 6,
+      "reason": "Selected tunnel"
+    },
+    {
+      "time": 51733.932930192,
+      "owner": "stop",
+      "generation": 7,
+      "reason": "Requested stop"
+    },
+    {
+      "time": 51734.530766468,
+      "owner": "tunnel",
+      "generation": 7,
+      "reason": "Selected tunnel"
+    },
+    {
+      "time": 51780.796093834,
+      "owner": "stop",
+      "generation": 8,
+      "reason": "Requested stop"
+    }
+  ]
+}

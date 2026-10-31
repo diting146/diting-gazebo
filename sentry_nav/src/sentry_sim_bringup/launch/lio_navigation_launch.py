@@ -53,6 +53,7 @@ def generate_launch_description():
             param_rewrites={
                 'use_sim_time': use_sim_time,
                 'yaml_filename': map_yaml_file,
+                'output_cmd_vel_topic': LaunchConfiguration('nav_cmd_vel_output'),
             },
             convert_types=True,
         ),
@@ -68,7 +69,7 @@ def generate_launch_description():
     declare_map_cmd = DeclareLaunchArgument(
         'map',
         default_value=os.path.join(
-            bringup_dir, 'maps', 'diting_3v3_field.yaml'
+            bringup_dir, 'maps', '2027RMUL.yaml'
         ),
         description='Full path to the map yaml file to load',
     )
@@ -296,6 +297,7 @@ def generate_launch_description():
             }], output='screen'))
 
     ld = LaunchDescription()
+    ld.add_action(DeclareLaunchArgument('nav_cmd_vel_output', default_value='/cmd_vel'))
 
     ld.add_action(declare_namespace_cmd)
     ld.add_action(declare_map_cmd)

@@ -119,3 +119,25 @@ ros2 run tf2_ros tf2_echo map chassis
 ```
 
 Foxglove 连接 `ws://localhost:8765`。完整的本机动态验收结论、最新模型更新后的复验范围，见 [2026-10-22 联调记录](docs/validation/2026-10-22.md)。重启前退出旧启动实例，避免重复节点和仿真时钟回跳。
+
+
+## UL 开局与隧道业务
+
+本分支基于已完成 LIO 验证的 `5a1888d`，未合并主线后续的双机 YAstar 方案。新增 `sentry_bot/` 业务工作空间和 `operator_console/` 操控台，配套 2027 场地、地图和启动选择。Nav2 负责开阔区域，专用闭环直线控制负责隧道，定位保持 Point-LIO + small_gicp，未接入 z_nav。机器人和雷达安装保持不变。
+
+按前文构建仿真与导航工作空间后，构建业务层：
+
+```bash
+source source_all.bash
+cd sentry_bot
+colcon build --base-paths src --symlink-install
+cd ..
+source source_all.bash
+ros2 launch sentry_business_bringup opening_simulation_launch.py
+```
+
+另一个终端执行 `bash operator_console/start.bash`，打开 http://127.0.0.1:8989/ ，载入默认三点、编辑坐标、启动开局任务。不要并行启动第二个仿真实例。
+
+原运行工作区已连续通过 10 次完整开局、隧道正反方向各 10 次；最大横向误差约 1.96 cm，测得侧壁最小余量约 9.64 cm。运动中取消、实体障碍物停车和数据失效保护测试通过。移入本仓库时仅适配地图工具的两种目录布局；记录不代表在新的工作区又运行了一遍完整仿真。
+
+见 [业务说明](sentry_bot/README.md)、[验证记录](sentry_bot/validation/implementation_progress.md) 和 [操控台说明](operator_console/README.md)。只提交源码、地图、场地和验证资料，不包含构建产物或原始建图录包。实物验证和裁判占领计时不在本次范围内。

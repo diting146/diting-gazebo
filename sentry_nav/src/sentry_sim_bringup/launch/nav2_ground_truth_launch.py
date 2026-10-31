@@ -64,6 +64,7 @@ def generate_launch_description():
             param_rewrites={
                 'use_sim_time': use_sim_time,
                 'yaml_filename': map_yaml_file,
+                'output_cmd_vel_topic': LaunchConfiguration('nav_cmd_vel_output'),
             },
             convert_types=True,
         ),
@@ -79,7 +80,7 @@ def generate_launch_description():
     declare_map_cmd = DeclareLaunchArgument(
         'map',
         default_value=os.path.join(
-            bringup_dir, 'maps', 'diting_3v3_field.yaml'
+            bringup_dir, 'maps', '2027RMUL.yaml'
         ),
         description='Full path to the map yaml file to load',
     )
@@ -271,7 +272,8 @@ def generate_launch_description():
         package='sentry_sim_bringup',
         executable='sentry_gimbal_tf',
         name='sentry_gimbal_tf',
-        parameters=[{'use_sim_time': use_sim_time}],
+        parameters=[{'use_sim_time': use_sim_time,
+                     'max_rate_hz': ParameterValue(LaunchConfiguration('gimbal_tf_max_rate'), value_type=float)}],
         output='screen',
     )
 
@@ -288,6 +290,8 @@ def generate_launch_description():
     )
 
     ld = LaunchDescription()
+    ld.add_action(DeclareLaunchArgument('nav_cmd_vel_output', default_value='/cmd_vel'))
+    ld.add_action(DeclareLaunchArgument('gimbal_tf_max_rate', default_value='0.0'))
 
     ld.add_action(declare_namespace_cmd)
     ld.add_action(declare_map_cmd)

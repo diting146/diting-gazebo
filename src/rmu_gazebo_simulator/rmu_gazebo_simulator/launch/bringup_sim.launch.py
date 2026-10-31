@@ -28,23 +28,40 @@ import tempfile
 import yaml
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription
+from launch.actions import (
+    DeclareLaunchArgument,
+    IncludeLaunchDescription,
+    OpaqueFunction,
+)
 from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
 
-def generate_launch_description():
-    pkg_simulator = get_package_share_directory("rmu_gazebo_simulator")
-
-    gz_world_path = os.path.join(pkg_simulator, "config", "gz_world.yaml")
+def _default_world(gz_world_path):
+    """Return the world selected in config/gz_world.yaml."""
     with open(gz_world_path) as file:
         config = yaml.safe_load(file)
-        selected_world = config.get("world")
-        robots = config["robots"].get(selected_world, [])
+    return config.get("world")
+
+
+def _launch_setup(context, pkg_simulator, gz_world_path, bridge_template_path):
+    """Build the simulator actions for the selected world."""
+    selected_world = LaunchConfiguration("world").perform(context)
+    with open(gz_world_path) as file:
+        config = yaml.safe_load(file)
+    if selected_world not in config["robots"]:
+        raise RuntimeError(
+            f"unknown world '{selected_world}'; available worlds: "
+            f"{sorted(config['robots'])}"
+        )
+    robots = config["robots"][selected_world]
 
     world_sdf_path = os.path.join(
         pkg_simulator, "resource", "worlds", f"{selected_world}_world.sdf"
     )
+    if not os.path.isfile(world_sdf_path):
+        raise RuntimeError(f"world SDF not found: {world_sdf_path}")
     ign_config_path = os.path.join(pkg_simulator, "resource", "ign", "gui.config")
 
     gazebo_launch = IncludeLaunchDescription(
@@ -52,6 +69,7 @@ def generate_launch_description():
             os.path.join(pkg_simulator, "launch", "gazebo.launch.py")
         ),
         launch_arguments={
+            "world": selected_world,
             "world_sdf_path": world_sdf_path,
             "ign_config_path": ign_config_path,
         }.items(),
@@ -60,18 +78,19 @@ def generate_launch_description():
     spawn_robots_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(pkg_simulator, "launch", "spawn_robots.launch.py")
-        )
+        ),
+        launch_arguments={"world": selected_world}.items(),
     )
 
     referee_system_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(pkg_simulator, "launch", "referee_system.launch.py")
-        )
+        ),
+        launch_arguments={"world": selected_world}.items(),
     )
 
     # Expand the bridge template for every robot and concatenate into ONE config
     # so a single parameter_bridge serves all robots.
-    bridge_template_path = os.path.join(pkg_simulator, "config", "ros_gz_bridge.yaml")
     with open(bridge_template_path) as file:
         template = file.read()
 
@@ -95,10 +114,31 @@ def generate_launch_description():
         output="screen",
     )
 
+    return [gazebo_launch, spawn_robots_launch, referee_system_launch, bridge]
+
+
+def generate_launch_description():
+    pkg_simulator = get_package_share_directory("rmu_gazebo_simulator")
+
+    gz_world_path = os.path.join(pkg_simulator, "config", "gz_world.yaml")
+    bridge_template_path = os.path.join(pkg_simulator, "config", "ros_gz_bridge.yaml")
+
+    declare_world = DeclareLaunchArgument(
+        "world",
+        default_value=_default_world(gz_world_path),
+        description=(
+            "World to simulate; must match a key in config/gz_world.yaml and "
+            "resource/worlds/<world>_world.sdf"
+        ),
+    )
+
     ld = LaunchDescription()
-    ld.add_action(gazebo_launch)
-    ld.add_action(spawn_robots_launch)
-    ld.add_action(referee_system_launch)
-    ld.add_action(bridge)
+    ld.add_action(declare_world)
+    ld.add_action(
+        OpaqueFunction(
+            function=_launch_setup,
+            args=[pkg_simulator, gz_world_path, bridge_template_path],
+        )
+    )
 
     return ld

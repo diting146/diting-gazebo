@@ -1,0 +1,10 @@
+{
+  "passed": true,
+  "checks": [
+    "90-degree odometry rotates virtual x to chassis negative y; angular velocity preserved",
+    "no cached command replay when input producer stops",
+    "stale odometry produces zero velocity"
+  ],
+  "ros_domain": 73,
+  "no_simulator_attached": true
+}

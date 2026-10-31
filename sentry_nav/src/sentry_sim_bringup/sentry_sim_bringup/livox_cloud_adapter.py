@@ -111,9 +111,16 @@ class LivoxCloudAdapter(Node):
 
         self._buffer = tf2_ros.Buffer()
         self._listener = tf2_ros.TransformListener(self._buffer, self)
+        output_reliability = self.declare_parameter(
+            'output_reliability', 'best_effort'
+        ).value
+        policies = {'best_effort': ReliabilityPolicy.BEST_EFFORT,
+                    'reliable': ReliabilityPolicy.RELIABLE}
+        if output_reliability not in policies:
+            raise ValueError('output_reliability must be best_effort or reliable')
         self._publisher = self.create_publisher(
             PointCloud2, output_topic, QoSProfile(
-                depth=5, reliability=ReliabilityPolicy.BEST_EFFORT
+                depth=5, reliability=policies[output_reliability]
             )
         )
         self._subscription = self.create_subscription(

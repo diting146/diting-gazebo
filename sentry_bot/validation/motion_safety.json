@@ -1,0 +1,15 @@
+{
+  "passed": true,
+  "checks": [
+    "selected source commands forwarded",
+    "operator stop rejects queued stale handoff and subsequent velocity",
+    "wrong source and old cache cannot command new owner",
+    "command silence latches stop",
+    "lost mission heartbeat latches stop despite live command producer",
+    "replayed stale odometry stops and blocks reactivation",
+    "brief missing odometry holds zero until fresh data returns",
+    "persistent odometry loss latches stop even with live heartbeat and commands"
+  ],
+  "ros_domain": 73,
+  "note": "Isolated ROS graph, no physical robot or simulator attached."
+}

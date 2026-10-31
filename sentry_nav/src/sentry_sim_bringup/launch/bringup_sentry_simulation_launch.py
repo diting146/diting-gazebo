@@ -27,6 +27,9 @@ Navigation is selected with the ``localization`` launch argument:
 * ``ground_truth`` explicitly selects ``nav2_ground_truth_launch.py`` for
   debugging with Gazebo odometry.
 
+The ``world`` argument selects the simulation arena and, unless overridden,
+the matching Nav2 map assets: ``2027RMUL`` (default) or ``2027RMUC``.
+
 The sentry SDF is derived from the shared RM25 model by
 ``models/generate_sentry_model.py`` before launch.
 """
@@ -59,6 +62,25 @@ def _value(context, name):
     return LaunchConfiguration(name).perform(context)
 
 
+def _resolve_map_assets(context, pkg_share):
+    """Resolve the Nav2 map and prior cloud for the selected world."""
+    world = _value(context, 'world')
+    map_file = _value(context, 'map')
+    if not map_file:
+        map_file = os.path.join(pkg_share, 'maps', f'{world}.yaml')
+        if not os.path.isfile(map_file):
+            raise RuntimeError(
+                f"no map for world '{world}': {map_file} is missing; "
+                "pass map:=<file> or choose a world with map assets"
+            )
+    prior_pcd = _value(context, 'prior_pcd_file')
+    if not prior_pcd:
+        mapped_pcd = os.path.join(pkg_share, 'maps', f'{world}_mapped.pcd')
+        sampled_pcd = os.path.join(pkg_share, 'maps', f'{world}.pcd')
+        prior_pcd = mapped_pcd if os.path.isfile(mapped_pcd) else sampled_pcd
+    return map_file, prior_pcd
+
+
 def _launch_setup(context):
     """Create the actions that depend on the sentry name substitutions."""
     sentry_name = _value(context, 'sentry_name')
@@ -66,7 +88,7 @@ def _launch_setup(context):
     start_nav2 = _as_bool(_value(context, 'start_nav2'))
 
     pkg_share = get_package_share_directory('sentry_sim_bringup')
-    nav_share = get_package_share_directory('pb2025_nav_bringup')
+    map_file, prior_pcd_file = _resolve_map_assets(context, pkg_share)
 
     template_path = os.path.join(pkg_share, 'config', 'sentry_bridge.yaml.in')
     with open(template_path, 'r', encoding='utf-8') as template_file:
@@ -87,9 +109,10 @@ def _launch_setup(context):
     bridge_file.flush()
     bridge_file.close()
 
+    spawn_when_ready = _as_bool(_value(context, 'spawn_when_ready'))
     spawn_sentry = Node(
-        package='ros_gz_sim',
-        executable='create',
+        package='sentry_sim_bringup' if spawn_when_ready else 'ros_gz_sim',
+        executable='spawn_when_ready' if spawn_when_ready else 'create',
         arguments=[
             '-world', 'default',
             '-file',
@@ -125,6 +148,7 @@ def _launch_setup(context):
         name='sim_serial_gateway',
         parameters=[{
             'idle_spin_speed': float(_value(context, 'spin_speed')),
+            'business_mode': _as_bool(_value(context, 'business_mode')),
             'use_sim_time': use_sim_time,
             'require_localization': (
                 start_nav2 and _value(context, 'localization') == 'lio'
@@ -143,7 +167,7 @@ def _launch_setup(context):
     actions = (
         # The /world/default/create service is not always up 10 s after launch
         # on a cold Gazebo start; 25 s avoids the create request timing out.
-        [TimerAction(period=25.0, actions=[spawn_sentry])]
+        [spawn_sentry if spawn_when_ready else TimerAction(period=25.0, actions=[spawn_sentry])]
         + [sentry_bridge, gateway]
     )
 
@@ -172,8 +196,8 @@ def _launch_setup(context):
             nav_arguments = {
                 'namespace': _value(context, 'namespace'),
                 'slam': _value(context, 'slam'),
-                'map': _value(context, 'map'),
-                'prior_pcd_file': _value(context, 'prior_pcd_file'),
+                'map': map_file,
+                'prior_pcd_file': prior_pcd_file,
                 'use_sim_time': _value(context, 'use_sim_time'),
                 'autostart': _value(context, 'autostart'),
                 'use_composition': _value(context, 'use_composition'),
@@ -181,6 +205,7 @@ def _launch_setup(context):
                 'use_rviz': _value(context, 'use_rviz'),
                 'world': _value(context, 'world'),
                 'spin_speed': _value(context, 'spin_speed'),
+                'nav_cmd_vel_output': _value(context, 'nav_cmd_vel_output'),
                 'gimbal_world_lock': _value(context, 'gimbal_world_lock'),
                 'sentry_name': sentry_name,
                 'x': _value(context, 'x'),
@@ -195,7 +220,7 @@ def _launch_setup(context):
                 'nav2_ground_truth_launch.py',
             )
             nav_arguments = {
-                'map': _value(context, 'map'),
+                'map': map_file,
                 'params_file': params_file,
                 'use_sim_time': _value(context, 'use_sim_time'),
                 'autostart': _value(context, 'autostart'),
@@ -203,6 +228,8 @@ def _launch_setup(context):
                 'use_respawn': _value(context, 'use_respawn'),
                 'sentry_name': _value(context, 'sentry_name'),
                 'spin_speed': _value(context, 'spin_speed'),
+                'nav_cmd_vel_output': _value(context, 'nav_cmd_vel_output'),
+                'gimbal_tf_max_rate': '100.0' if _as_bool(_value(context, 'business_mode')) else '0.0',
                 'gimbal_world_lock': _value(context, 'gimbal_world_lock'),
             }
         actions.append(
@@ -217,7 +244,8 @@ def _launch_setup(context):
                     package='sentry_sim_bringup',
                     executable='sentry_gimbal_tf',
                     name='sentry_gimbal_tf',
-                    parameters=[{'use_sim_time': use_sim_time}],
+                    parameters=[{'use_sim_time': use_sim_time,
+                                 'max_rate_hz': 100.0 if _as_bool(_value(context, 'business_mode')) else 0.0}],
                     output='screen',
                 ),
                 Node(
@@ -274,18 +302,28 @@ def generate_launch_description():
     )
 
     declared_arguments = [
-        DeclareLaunchArgument('world', default_value='diting_3v3_field'),
+        DeclareLaunchArgument(
+            'world',
+            default_value='2027RMUL',
+            description=(
+                'Simulation world/map name; selects resource/worlds/'
+                '<world>_world.sdf and maps/<world>.yaml'
+            ),
+        ),
         DeclareLaunchArgument('slam', default_value='False'),
         DeclareLaunchArgument(
             'map',
-            default_value=os.path.join(
-                pkg_share, 'maps', 'diting_3v3_field.yaml'
+            default_value='',
+            description=(
+                'Nav2 map yaml; empty selects maps/<world>.yaml'
             ),
         ),
         DeclareLaunchArgument(
             'prior_pcd_file',
-            default_value=os.path.join(
-                pkg_share, 'maps', 'diting_3v3_field_mapped.pcd'
+            default_value='',
+            description=(
+                'Prior point cloud; empty selects maps/<world>_mapped.pcd '
+                'when present, otherwise maps/<world>.pcd'
             ),
         ),
         DeclareLaunchArgument('use_sim_time', default_value='True'),
@@ -295,6 +333,8 @@ def generate_launch_description():
         DeclareLaunchArgument('use_composition', default_value='True'),
         DeclareLaunchArgument('use_respawn', default_value='False'),
         DeclareLaunchArgument('use_rviz', default_value='False'),
+        DeclareLaunchArgument('spawn_when_ready', default_value='False',
+                              description='Spawn as soon as Gazebo advertises its create service'),
         DeclareLaunchArgument('sentry_name', default_value='sentry_robot1'),
         DeclareLaunchArgument('x', default_value='-5.3'),
         DeclareLaunchArgument('y', default_value='3.0'),
@@ -323,10 +363,15 @@ def generate_launch_description():
     rmu_bringup = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(rmu_share, 'launch', 'bringup_sim.launch.py')
-        )
+        ),
+        launch_arguments={
+            'world': LaunchConfiguration('world'),
+        }.items(),
     )
 
     ld = LaunchDescription()
+    ld.add_action(DeclareLaunchArgument('business_mode', default_value='False'))
+    ld.add_action(DeclareLaunchArgument('nav_cmd_vel_output', default_value='/cmd_vel'))
     ld.add_action(
         SetEnvironmentVariable('IGN_GAZEBO_RESOURCE_PATH', resource_path)
     )

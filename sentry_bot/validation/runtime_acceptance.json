@@ -1,0 +1,109 @@
+{
+  "passed": false,
+  "route": {
+    "world": "2027RMUL",
+    "frame": "map",
+    "entry": {
+      "x": -4.1,
+      "y": 3.46,
+      "yaw": 0.0
+    },
+    "exit": {
+      "x": -1.0,
+      "y": 3.46,
+      "yaw": 0.0
+    },
+    "center": {
+      "x": 0.0,
+      "y": 0.0,
+      "yaw": 0.0
+    },
+    "validation_status": "geometry_preliminary_runtime_pending"
+  },
+  "model_changed": false,
+  "localization": "lio",
+  "runs": [
+    {
+      "kind": "opening",
+      "index": 1,
+      "success": false,
+      "stages": [
+        "entry",
+        "tunnel:align",
+        "tunnel:waiting_data",
+        "tunnel:align",
+        "tunnel:waiting_data",
+        "tunnel:align",
+        "tunnel:waiting_data",
+        "tunnel:align",
+        "tunnel:waiting_data"
+      ],
+      "max_follow_lateral_error": 0.0,
+      "max_follow_heading_error": 0.0,
+      "follow_samples": 0,
+      "min_reference_wall_clearance": null,
+      "reference_samples_in_tunnel": 0,
+      "last_reference": [
+        -4.10241051981155,
+        3.4603004604368697,
+        -0.7092739993962379
+      ],
+      "last_stage": "tunnel:waiting_data",
+      "elapsed_wall": 13.18433423499664
+    }
+  ],
+  "error": "tunnel failed: Tunnel ownership lost",
+  "cmd_vel_publishers": [
+    "velocity_arbiter"
+  ],
+  "owner_events": [
+    {
+      "time": 51191.83339134,
+      "owner": "stop",
+      "generation": 1,
+      "reason": "Odometry expired"
+    },
+    {
+      "time": 51192.13665622,
+      "owner": "stop",
+      "generation": 2,
+      "reason": "Requested stop"
+    },
+    {
+      "time": 51192.15589464,
+      "owner": "nav",
+      "generation": 2,
+      "reason": "Selected nav"
+    },
+    {
+      "time": 51197.316889702,
+      "owner": "stop",
+      "generation": 3,
+      "reason": "Requested stop"
+    },
+    {
+      "time": 51197.835332329,
+      "owner": "tunnel",
+      "generation": 3,
+      "reason": "Selected tunnel"
+    },
+    {
+      "time": 51204.97717046,
+      "owner": "stop",
+      "generation": 4,
+      "reason": "Odometry expired"
+    },
+    {
+      "time": 51205.01554773,
+      "owner": "stop",
+      "generation": 6,
+      "reason": "Odometry expired"
+    },
+    {
+      "time": 51205.034877493,
+      "owner": "stop",
+      "generation": 8,
+      "reason": "Odometry expired"
+    }
+  ]
+}

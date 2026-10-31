@@ -21,20 +21,40 @@ from launch.actions import (
     IncludeLaunchDescription,
 )
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration, TextSubstitution
+from launch.substitutions import (
+    LaunchConfiguration,
+    PathJoinSubstitution,
+    PythonExpression,
+    TextSubstitution,
+)
 from launch_ros.actions import Node
 
 
 def generate_launch_description():
     pkg_simulator = get_package_share_directory("rmu_gazebo_simulator")
 
+    world = LaunchConfiguration("world")
     world_sdf_path = LaunchConfiguration("world_sdf_path")
     ign_config_path = LaunchConfiguration("ign_config_path")
 
+    declare_world = DeclareLaunchArgument(
+        "world",
+        default_value="2027RMUL",
+        description=(
+            "World name; resolves to resource/worlds/<world>_world.sdf unless "
+            "world_sdf_path is set explicitly"
+        ),
+    )
+
     declare_world_sdf_path = DeclareLaunchArgument(
         "world_sdf_path",
-        default_value=os.path.join(
-            pkg_simulator, "resource", "worlds", "diting_3v3_field_world.sdf"
+        default_value=PathJoinSubstitution(
+            [
+                pkg_simulator,
+                "resource",
+                "worlds",
+                PythonExpression(["'", world, "_world.sdf'"]),
+            ]
         ),
         description="Path to the world SDF file",
     )
@@ -73,6 +93,7 @@ def generate_launch_description():
 
     ld = LaunchDescription()
 
+    ld.add_action(declare_world)
     ld.add_action(declare_world_sdf_path)
     ld.add_action(declare_ign_config_path)
     ld.add_action(gazebo)

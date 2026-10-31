@@ -1,0 +1,23 @@
+{
+  "passed": false,
+  "cases": [
+    {
+      "kind": "operator_cancel",
+      "index": 1,
+      "stages": [],
+      "max_follow_lateral_error": 0.0,
+      "max_follow_heading_error": 0.0,
+      "follow_samples": 0,
+      "min_reference_wall_clearance": null,
+      "reference_samples_in_tunnel": 0,
+      "last_reference": [
+        -5.300000000061569,
+        3.0000142412428925,
+        -1.5707963267894924
+      ],
+      "result": "Chassis did not confirm stationary"
+    }
+  ],
+  "error": "Cancel trigger never reached",
+  "model_changed": false
+}

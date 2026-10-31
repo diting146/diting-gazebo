@@ -40,6 +40,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            'spawn_when_ready = sentry_sim_bringup.spawn_when_ready:main',
             'sim_serial_gateway = '
             'sentry_sim_bringup.sim_serial_gateway:main',
             'sim_ground_truth_odometry = '

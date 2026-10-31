@@ -1,0 +1,96 @@
+{
+  "passed": false,
+  "route": {
+    "world": "2027RMUL",
+    "frame": "map",
+    "entry": {
+      "x": -4.1,
+      "y": 3.46,
+      "yaw": 0.0
+    },
+    "exit": {
+      "x": -1.0,
+      "y": 3.46,
+      "yaw": 0.0
+    },
+    "center": {
+      "x": 0.0,
+      "y": 0.0,
+      "yaw": 0.0
+    },
+    "validation_status": "geometry_preliminary_runtime_pending"
+  },
+  "model_changed": false,
+  "localization": "ground_truth",
+  "runs": [
+    {
+      "kind": "opening",
+      "index": 1,
+      "success": false,
+      "stages": [
+        "entry"
+      ],
+      "max_follow_lateral_error": 0.0,
+      "max_follow_heading_error": 0.0,
+      "follow_samples": 0,
+      "min_reference_wall_clearance": null,
+      "reference_samples_in_tunnel": 0,
+      "last_reference": [
+        -4.167896931876769,
+        3.466529352899779,
+        -1.570863562120921
+      ],
+      "last_stage": "entry",
+      "elapsed_wall": 0.2666822469982435
+    }
+  ],
+  "error": "tunnel failed: Lookup would require extrapolation into the future.  Requested time 221.700000 but the latest data is at time 219.986000, when looking up transform from frame [lidar_link] to frame [odom]",
+  "cmd_vel_publishers": [
+    "velocity_arbiter"
+  ],
+  "single_writer_matches_motion_state_participant": true,
+  "owner_events": [
+    {
+      "time": 52743.203032227,
+      "owner": "stop",
+      "generation": 4,
+      "reason": "Operator stop"
+    },
+    {
+      "time": 52744.129289357,
+      "owner": "stop",
+      "generation": 5,
+      "reason": "Requested stop"
+    },
+    {
+      "time": 52744.149637697,
+      "owner": "nav",
+      "generation": 5,
+      "reason": "Selected nav"
+    },
+    {
+      "time": 52744.250330949,
+      "owner": "stop",
+      "generation": 6,
+      "reason": "Requested stop"
+    },
+    {
+      "time": 52744.270023579,
+      "owner": "tunnel",
+      "generation": 6,
+      "reason": "Selected tunnel"
+    },
+    {
+      "time": 52744.349399909,
+      "owner": "stop",
+      "generation": 7,
+      "reason": "Operator stop"
+    },
+    {
+      "time": 52744.390228291,
+      "owner": "stop",
+      "generation": 8,
+      "reason": "Operator stop"
+    }
+  ]
+}

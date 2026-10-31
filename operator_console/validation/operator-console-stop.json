@@ -1,0 +1,6 @@
+{
+  "samples": 2238,
+  "last_200_max_abs_angular_rad_s": 1.997564217986678e-11,
+  "last_200_max_linear_m_s": 4.002596688150389e-06,
+  "passed": true
+}

@@ -1,0 +1,6 @@
+world: 2027RMUL
+frame: map
+entry: {x: -4.1, y: 3.46, yaw: 0.0}
+exit: {x: -1.0, y: 3.46, yaw: 0.0}
+center: {x: 0.0, y: 0.0, yaw: 0.0}
+validation_status: simulation_lio_10_opening_10_each_direction_passed

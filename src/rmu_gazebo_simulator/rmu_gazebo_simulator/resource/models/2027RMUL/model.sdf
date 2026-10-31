@@ -1,0 +1,44 @@
+<?xml version="1.0"?>
+<sdf version="1.7">
+  <model name="2027RMUL">
+    <static>true</static>
+    <link name="link">
+      <!-- Source mesh: 2027赛季3v3图纸(1).STL (binary STL, units = millimetres).
+           Measured bbox (mm): X 63.3..12663.3, Y 14.0..534.0, Z 33..8633.
+           The field's ground plane is the full-footprint face (12600x8600) which
+           sits at the LARGEST Y -> the model is Y-DOWN.
+           Transform: scale x0.001 (mm->m), rotate -90 deg about X (Y-down -> Z-up,
+           floor down), translate to centre the field on the origin with the floor
+           at z=0.
+             world_x = 0.001*X          -> X in [-6.3, 6.3]
+             world_y = 0.001*Z          -> Y in [-4.3, 4.3]
+             world_z = -0.001*Y + 0.5340-> floor (Ymax) at z=0, top at z~0.52
+           If the field ever renders upside-down, swap this pose for
+           "-6.3633 4.333 0 1.5708 0 0" (the non-flipped variant). -->
+      <pose>-6.3633 -4.333 0.5340 -1.5708 0 0</pose>
+      <collision name="collision">
+        <geometry>
+          <mesh>
+            <uri>model://2027RMUL/meshes/2027RMUL.stl</uri>
+            <scale>0.001 0.001 0.001</scale>
+          </mesh>
+        </geometry>
+      </collision>
+      <visual name="visual">
+        <geometry>
+          <mesh>
+            <uri>model://2027RMUL/meshes/2027RMUL.stl</uri>
+            <scale>0.001 0.001 0.001</scale>
+          </mesh>
+        </geometry>
+        <!-- STL carries no material, so Gazebo renders it flat white by default.
+             This gives the field a matte grey look; edit the RGB values to taste. -->
+        <material>
+          <ambient>0.3 0.3 0.32 1</ambient>
+          <diffuse>0.55 0.56 0.6 1</diffuse>
+          <specular>0.08 0.08 0.08 1</specular>
+        </material>
+      </visual>
+    </link>
+  </model>
+</sdf>

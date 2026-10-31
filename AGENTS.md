@@ -38,3 +38,8 @@ Run `colcon test --packages-select <package>` followed by `colcon test-result --
 ## Commit & Pull Request Guidelines
 
 Commit workspace changes here and preserve upstream license notices. Upstream history mixes imperative subjects such as `Update lidar pose in sentry_robot` with scoped prefixes such as `ci(mergify): ...`; use a concise, descriptive subject consistent with that project. Keep changes focused. PRs should explain behavior changes, link relevant issues, list validation commands/results, and include screenshots or recordings for visible simulation changes. Follow the affected project's `CONTRIBUTING.md` when present.
+
+
+## Opening business overlay
+
+`sentry_bot/src/` owns mission sequencing, motion arbitration, tunnel control and business bringup. Build it after the navigation overlay; `source_all.bash` optionally sources its install. `operator_console/` owns the standalone UI/backend. Keep generated build/install/log directories out of Git. The tested opening profile uses Point-LIO + small_gicp and the unchanged sentry model; do not introduce z_nav. See `sentry_bot/validation/implementation_progress.md` for acceptance provenance.

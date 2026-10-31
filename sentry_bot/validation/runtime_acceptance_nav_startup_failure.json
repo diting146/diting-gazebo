@@ -1,0 +1,81 @@
+{
+  "passed": false,
+  "route": {
+    "world": "2027RMUL",
+    "frame": "map",
+    "entry": {
+      "x": -4.1,
+      "y": 3.46,
+      "yaw": 0.0
+    },
+    "exit": {
+      "x": -1.0,
+      "y": 3.46,
+      "yaw": 0.0
+    },
+    "center": {
+      "x": 0.0,
+      "y": 0.0,
+      "yaw": 0.0
+    },
+    "validation_status": "geometry_preliminary_runtime_pending"
+  },
+  "model_changed": false,
+  "localization": "lio",
+  "runs": [
+    {
+      "kind": "opening",
+      "index": 1,
+      "success": false,
+      "stages": [],
+      "max_follow_lateral_error": 0.0,
+      "max_follow_heading_error": 0.0,
+      "follow_samples": 0,
+      "min_reference_wall_clearance": null,
+      "reference_samples_in_tunnel": 0,
+      "last_reference": [
+        -5.300000000061569,
+        3.000026248412368,
+        -1.5707963267894924
+      ],
+      "elapsed_wall": 0.14672257300117053
+    }
+  ],
+  "error": "entry goal rejected",
+  "cmd_vel_publishers": [
+    "velocity_arbiter"
+  ],
+  "single_writer_matches_motion_state_participant": true,
+  "owner_events": [
+    {
+      "time": 53579.038967789,
+      "owner": "stop",
+      "generation": 0,
+      "reason": "Startup stop"
+    },
+    {
+      "time": 53601.971612921,
+      "owner": "stop",
+      "generation": 1,
+      "reason": "Requested stop"
+    },
+    {
+      "time": 53602.011654322,
+      "owner": "nav",
+      "generation": 1,
+      "reason": "Selected nav"
+    },
+    {
+      "time": 53602.050212332,
+      "owner": "stop",
+      "generation": 2,
+      "reason": "Operator stop"
+    },
+    {
+      "time": 53602.090101887,
+      "owner": "stop",
+      "generation": 3,
+      "reason": "Operator stop"
+    }
+  ]
+}

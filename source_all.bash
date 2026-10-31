@@ -83,6 +83,9 @@ fi
 . "${_gazebo_setup}"
 # shellcheck disable=SC1090
 . "${_sentry_setup}"
+if [ -f "${_sentry_ws_root}/sentry_bot/install/setup.bash" ]; then
+  . "${_sentry_ws_root}/sentry_bot/install/setup.bash"
+fi
 
 printf 'sentry_nav workspace ready: ROS_DOMAIN_ID=%s gazebo=%s sentry_nav=%s\n' \
   "${ROS_DOMAIN_ID}" "${_gazebo_install}" "${_sentry_install}"

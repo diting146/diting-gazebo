@@ -1,0 +1,7 @@
+{
+  "passed": true,
+  "elapsed_wall": 37.577656110000135,
+  "max_follow_lateral_error": 0.01753738522529602,
+  "model_changed": false,
+  "trace_file": "opening_control_probe.json"
+}
