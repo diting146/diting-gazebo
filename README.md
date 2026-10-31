@@ -141,3 +141,10 @@ ros2 launch sentry_business_bringup opening_simulation_launch.py
 原运行工作区已连续通过 10 次完整开局、隧道正反方向各 10 次；最大横向误差约 1.96 cm，测得侧壁最小余量约 9.64 cm。运动中取消、实体障碍物停车和数据失效保护测试通过。移入本仓库时仅适配地图工具的两种目录布局；记录不代表在新的工作区又运行了一遍完整仿真。
 
 见 [业务说明](sentry_bot/README.md)、[验证记录](sentry_bot/validation/implementation_progress.md) 和 [操控台说明](operator_console/README.md)。只提交源码、地图、场地和验证资料，不包含构建产物或原始建图录包。实物验证和裁判占领计时不在本次范围内。
+
+
+### 提速与默认对正
+
+业务启动现默认出生于隧道入口 `(-4.1, 3.46)`、朝向 `0°`，可通过 `x`、`y`、`yaw` 覆盖。隧道巡航速度为 `0.4 m/s`，前方障碍检测范围延长至 `0.8 m`，保留出口减速与停车保护。
+
+新版通过 2 次完整任务和正反方向各 2 次穿越，最大横向误差约 2.34 cm；运动中取消与实体障碍物停车复测通过。原版 30 次连续验证对应 0.2 m/s，记录保留在原报告中。见 `sentry_bot/validation/runtime_fast_profile.json`。

@@ -23,3 +23,12 @@ Earlier failed probes remain in this directory for diagnosis and do not count to
 Acceptance covers the measured upper-left UL passage in the current simulator. Real hardware, referee integration and three-second occupation timing are outside this implementation. No robot geometry, map radius or upstream planning algorithm was changed to force passage.
 
 Final state: clean integrated business launch and console running, navigation ready, owner stop, stationary confirmed, no leftover isolated safety-test nodes. Final graph in `chassis_command_graph_final.txt` confirms one chassis writer.
+
+
+## Faster tunnel profile and aligned spawn
+
+- Business spawn defaults to the measured tunnel entry (-4.1, 3.46), yaw 0.0. Launch arguments x/y/yaw remain overridable. A trial spawn at (-5.3, 3.46) encountered Nav2 start-cell obstruction near the corner; its failure is preserved in `runtime_fast_spawn_corner_failure.json`.
+- Tunnel cruise increased from 0.2 to 0.4 m/s. Forward obstacle guard increased from 0.6 to 0.8 m; exit deceleration, deviation limits and stop arbitration remain active.
+- `runtime_fast_profile.json`: two full openings and two traversals in each direction passed. Max lateral error 0.023381 m, independently measured minimum wall margin 0.119067 m. The first complete opening from the aligned entry took about 25.82 wall seconds. Runtime motion parameters are embedded in the report.
+- `live_stop_checks.json` now records the faster profile: moving cancellation stationary confirmation 1.369 s, physical-blocker stop near x=-3.402, fixture removal confirmed. Original slow-profile stop report is preserved as `live_stop_checks_0p2.json`.
+- Business colcon tests: 13 passed, zero failures or skips. Added a focused check of the extended obstacle guard. Original 30-run acceptance is the 0.2 m/s baseline; it is not claimed as 30 runs at 0.4 m/s.

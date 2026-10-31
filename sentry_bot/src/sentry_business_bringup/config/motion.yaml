@@ -1,8 +1,9 @@
 tunnel_controller:
   ros__parameters:
-    speed: 0.2
+    speed: 0.4
     max_lateral_error: 0.08
     timeout: 60.0
     lateral_kp: 3.0
     lateral_min_speed: 0.10
     lateral_max_speed: 0.12
+    obstacle_lookahead: 0.8

@@ -1,0 +1,475 @@
+{
+  "passed": true,
+  "route": {
+    "world": "2027RMUL",
+    "frame": "map",
+    "entry": {
+      "x": -4.1,
+      "y": 3.46,
+      "yaw": 0.0
+    },
+    "exit": {
+      "x": -1.0,
+      "y": 3.46,
+      "yaw": 0.0
+    },
+    "center": {
+      "x": 0.0,
+      "y": 0.0,
+      "yaw": 0.0
+    },
+    "validation_status": "simulation_lio_10_opening_10_each_direction_passed"
+  },
+  "model_changed": false,
+  "localization": "lio",
+  "runs": [
+    {
+      "kind": "opening",
+      "index": 1,
+      "success": true,
+      "stages": [
+        "entry",
+        "tunnel:align",
+        "tunnel:follow",
+        "tunnel:waiting_data",
+        "tunnel:follow",
+        "tunnel:waiting_data",
+        "tunnel:follow",
+        "tunnel:waiting_data",
+        "tunnel:follow",
+        "tunnel:waiting_data",
+        "tunnel:follow",
+        "tunnel:waiting_data",
+        "tunnel:follow",
+        "tunnel:settle",
+        "center"
+      ],
+      "max_follow_lateral_error": 0.01874295249581337,
+      "max_follow_heading_error": 0.019825996831059456,
+      "follow_samples": 222,
+      "min_reference_wall_clearance": 0.11935788229516825,
+      "reference_samples_in_tunnel": 2019,
+      "last_reference": [
+        -0.01300289816432826,
+        0.09575669496487518,
+        -0.02040979944384691
+      ],
+      "last_stage": "center",
+      "elapsed_wall": 25.82008946100541
+    },
+    {
+      "kind": "opening",
+      "index": 2,
+      "success": true,
+      "stages": [
+        "entry",
+        "tunnel:align",
+        "tunnel:waiting_data",
+        "tunnel:align",
+        "tunnel:follow",
+        "tunnel:waiting_data",
+        "tunnel:follow",
+        "tunnel:waiting_data",
+        "tunnel:follow",
+        "tunnel:waiting_data",
+        "tunnel:follow",
+        "tunnel:waiting_data",
+        "tunnel:follow",
+        "tunnel:settle",
+        "center"
+      ],
+      "max_follow_lateral_error": 0.02338048256933689,
+      "max_follow_heading_error": 0.015629339963197708,
+      "follow_samples": 223,
+      "min_reference_wall_clearance": 0.11906673637150678,
+      "reference_samples_in_tunnel": 2371,
+      "last_reference": [
+        -0.013454596267764352,
+        0.10176650398332664,
+        -0.015860996713669365
+      ],
+      "last_stage": "center",
+      "elapsed_wall": 56.53594955299923
+    },
+    {
+      "kind": "tunnel",
+      "index": 1,
+      "success": true,
+      "stages": [
+        "nav",
+        "align",
+        "waiting_data",
+        "align",
+        "waiting_data",
+        "align",
+        "waiting_data",
+        "align",
+        "follow",
+        "waiting_data",
+        "follow",
+        "waiting_data",
+        "follow",
+        "settle"
+      ],
+      "max_follow_lateral_error": 0.016466543078422546,
+      "max_follow_heading_error": 0.01187974028289318,
+      "follow_samples": 215,
+      "min_reference_wall_clearance": 0.12319357783046597,
+      "reference_samples_in_tunnel": 1722,
+      "last_reference": [
+        -0.8723915057113208,
+        3.4519402028432844,
+        -0.012374001882252142
+      ],
+      "direction": "forward",
+      "last_stage": "settle",
+      "elapsed_wall": 47.15825693400984
+    },
+    {
+      "kind": "tunnel",
+      "index": 2,
+      "success": true,
+      "stages": [
+        "align",
+        "waiting_data",
+        "align",
+        "waiting_data",
+        "align",
+        "waiting_data",
+        "align",
+        "waiting_data",
+        "align",
+        "waiting_data",
+        "align",
+        "waiting_data",
+        "align",
+        "waiting_data",
+        "align",
+        "follow",
+        "waiting_data",
+        "follow",
+        "waiting_data",
+        "follow",
+        "waiting_data",
+        "follow",
+        "waiting_data",
+        "follow",
+        "settle"
+      ],
+      "max_follow_lateral_error": 0.011735627427697182,
+      "max_follow_heading_error": 0.023526648059487343,
+      "follow_samples": 230,
+      "min_reference_wall_clearance": 0.1251258723826777,
+      "reference_samples_in_tunnel": 1880,
+      "last_reference": [
+        -4.228568819986631,
+        3.4407163098698947,
+        -3.1309315451732505
+      ],
+      "direction": "reverse",
+      "last_stage": "settle",
+      "elapsed_wall": 39.65457333099039
+    },
+    {
+      "kind": "tunnel",
+      "index": 3,
+      "success": true,
+      "stages": [
+        "align",
+        "waiting_data",
+        "align",
+        "waiting_data",
+        "align",
+        "waiting_data",
+        "align",
+        "waiting_data",
+        "align",
+        "waiting_data",
+        "align",
+        "waiting_data",
+        "align",
+        "waiting_data",
+        "align",
+        "waiting_data",
+        "align",
+        "waiting_data",
+        "align",
+        "waiting_data",
+        "align",
+        "waiting_data",
+        "align",
+        "waiting_data",
+        "align",
+        "waiting_data",
+        "align",
+        "waiting_data",
+        "align",
+        "waiting_data",
+        "align",
+        "waiting_data",
+        "align",
+        "waiting_data",
+        "align",
+        "waiting_data",
+        "align",
+        "waiting_data",
+        "align",
+        "waiting_data",
+        "align",
+        "waiting_data",
+        "align",
+        "waiting_data",
+        "align",
+        "follow",
+        "waiting_data",
+        "follow",
+        "waiting_data",
+        "follow",
+        "waiting_data",
+        "follow",
+        "waiting_data",
+        "follow",
+        "waiting_data",
+        "follow",
+        "waiting_data",
+        "follow",
+        "waiting_data",
+        "follow",
+        "waiting_data",
+        "follow",
+        "settle",
+        "waiting_data",
+        "settle"
+      ],
+      "max_follow_lateral_error": 0.014992624521255493,
+      "max_follow_heading_error": 0.02878725156188011,
+      "follow_samples": 226,
+      "min_reference_wall_clearance": 0.12043423169243817,
+      "reference_samples_in_tunnel": 2398,
+      "last_reference": [
+        -0.8641733937206475,
+        3.463181408970457,
+        -0.015913756695120667
+      ],
+      "direction": "forward",
+      "last_stage": "settle",
+      "elapsed_wall": 49.3920848419948
+    },
+    {
+      "kind": "tunnel",
+      "index": 4,
+      "success": true,
+      "stages": [
+        "align",
+        "waiting_data",
+        "align",
+        "waiting_data",
+        "align",
+        "waiting_data",
+        "align",
+        "waiting_data",
+        "align",
+        "waiting_data",
+        "align",
+        "waiting_data",
+        "align",
+        "waiting_data",
+        "align",
+        "follow",
+        "waiting_data",
+        "follow",
+        "waiting_data",
+        "follow",
+        "waiting_data",
+        "follow",
+        "waiting_data",
+        "follow",
+        "waiting_data",
+        "follow",
+        "waiting_data",
+        "follow",
+        "settle"
+      ],
+      "max_follow_lateral_error": 0.013778881169855595,
+      "max_follow_heading_error": 0.025846466422080994,
+      "follow_samples": 224,
+      "min_reference_wall_clearance": 0.1266627705583277,
+      "reference_samples_in_tunnel": 1895,
+      "last_reference": [
+        -4.236155116089165,
+        3.4320874081070727,
+        -3.127810141540053
+      ],
+      "direction": "reverse",
+      "last_stage": "settle",
+      "elapsed_wall": 40.164231525996
+    }
+  ],
+  "error": null,
+  "cmd_vel_publishers": [
+    "velocity_arbiter"
+  ],
+  "single_writer_matches_motion_state_participant": true,
+  "owner_events": [
+    {
+      "time": 67305.024637173,
+      "owner": "stop",
+      "generation": 0,
+      "reason": "Startup stop"
+    },
+    {
+      "time": 67324.606012154,
+      "owner": "stop",
+      "generation": 1,
+      "reason": "Requested stop"
+    },
+    {
+      "time": 67324.64632439,
+      "owner": "nav",
+      "generation": 1,
+      "reason": "Selected nav"
+    },
+    {
+      "time": 67324.747320235,
+      "owner": "stop",
+      "generation": 2,
+      "reason": "Requested stop"
+    },
+    {
+      "time": 67324.766507754,
+      "owner": "tunnel",
+      "generation": 2,
+      "reason": "Selected tunnel"
+    },
+    {
+      "time": 67339.814065763,
+      "owner": "stop",
+      "generation": 3,
+      "reason": "Requested stop"
+    },
+    {
+      "time": 67339.853720509,
+      "owner": "nav",
+      "generation": 3,
+      "reason": "Selected nav"
+    },
+    {
+      "time": 67349.719138566,
+      "owner": "stop",
+      "generation": 4,
+      "reason": "Requested stop"
+    },
+    {
+      "time": 67350.982701945,
+      "owner": "nav",
+      "generation": 4,
+      "reason": "Selected nav"
+    },
+    {
+      "time": 67378.472793322,
+      "owner": "stop",
+      "generation": 5,
+      "reason": "Requested stop"
+    },
+    {
+      "time": 67379.157308277,
+      "owner": "tunnel",
+      "generation": 5,
+      "reason": "Selected tunnel"
+    },
+    {
+      "time": 67396.896477864,
+      "owner": "stop",
+      "generation": 6,
+      "reason": "Requested stop"
+    },
+    {
+      "time": 67396.936804778,
+      "owner": "nav",
+      "generation": 6,
+      "reason": "Selected nav"
+    },
+    {
+      "time": 67406.950981023,
+      "owner": "stop",
+      "generation": 7,
+      "reason": "Requested stop"
+    },
+    {
+      "time": 67407.972539581,
+      "owner": "nav",
+      "generation": 7,
+      "reason": "Selected nav"
+    },
+    {
+      "time": 67436.535430656,
+      "owner": "stop",
+      "generation": 8,
+      "reason": "Requested stop"
+    },
+    {
+      "time": 67437.115791808,
+      "owner": "tunnel",
+      "generation": 8,
+      "reason": "Selected tunnel"
+    },
+    {
+      "time": 67455.098755204,
+      "owner": "stop",
+      "generation": 9,
+      "reason": "Requested stop"
+    },
+    {
+      "time": 67455.647591934,
+      "owner": "tunnel",
+      "generation": 9,
+      "reason": "Selected tunnel"
+    },
+    {
+      "time": 67495.194998849,
+      "owner": "stop",
+      "generation": 10,
+      "reason": "Requested stop"
+    },
+    {
+      "time": 67495.912617789,
+      "owner": "tunnel",
+      "generation": 10,
+      "reason": "Selected tunnel"
+    },
+    {
+      "time": 67544.3757288,
+      "owner": "stop",
+      "generation": 11,
+      "reason": "Requested stop"
+    },
+    {
+      "time": 67545.697825879,
+      "owner": "tunnel",
+      "generation": 11,
+      "reason": "Selected tunnel"
+    },
+    {
+      "time": 67585.816929416,
+      "owner": "stop",
+      "generation": 12,
+      "reason": "Requested stop"
+    }
+  ],
+  "runtime_motion_parameters": {
+    "lateral_kp": 3.0,
+    "lateral_max_speed": 0.12,
+    "lateral_min_speed": 0.1,
+    "max_lateral_error": 0.08,
+    "obstacle_lookahead": 0.8,
+    "obstacle_topic": "/terrain_map_odom",
+    "speed": 0.4,
+    "timeout": 60.0,
+    "use_sim_time": true
+  },
+  "default_spawn": {
+    "x": -4.1,
+    "y": 3.46,
+    "yaw": 0.0
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "max_command_speed": 0.40769814295617873,
+  "max_odometry_speed": 0.5506709291797203,
+  "command_samples": 754,
+  "odometry_samples": 340,
+  "measurement_wall_seconds": 45
+}

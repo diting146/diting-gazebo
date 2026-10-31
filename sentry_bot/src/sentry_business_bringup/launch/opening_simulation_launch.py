@@ -17,12 +17,18 @@ def generate_launch_description():
         [
             DeclareLaunchArgument("localization", default_value="lio"),
             DeclareLaunchArgument("use_rviz", default_value="False"),
+            DeclareLaunchArgument("x", default_value="-4.1"),
+            DeclareLaunchArgument("y", default_value="3.46"),
+            DeclareLaunchArgument("yaw", default_value="0.0"),
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource(
                     os.path.join(sim, "launch", "bringup_sentry_simulation_launch.py")
                 ),
                 launch_arguments={
                     "world": "2027RMUL",
+                    "x": LaunchConfiguration("x"),
+                    "y": LaunchConfiguration("y"),
+                    "yaw": LaunchConfiguration("yaw"),
                     "localization": LaunchConfiguration("localization"),
                     "use_rviz": LaunchConfiguration("use_rviz"),
                     "spin_speed": "0.0",

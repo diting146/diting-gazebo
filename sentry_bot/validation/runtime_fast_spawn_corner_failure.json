@@ -1,0 +1,84 @@
+{
+  "passed": false,
+  "route": {
+    "world": "2027RMUL",
+    "frame": "map",
+    "entry": {
+      "x": -4.1,
+      "y": 3.46,
+      "yaw": 0.0
+    },
+    "exit": {
+      "x": -1.0,
+      "y": 3.46,
+      "yaw": 0.0
+    },
+    "center": {
+      "x": 0.0,
+      "y": 0.0,
+      "yaw": 0.0
+    },
+    "validation_status": "simulation_lio_10_opening_10_each_direction_passed"
+  },
+  "model_changed": false,
+  "localization": "lio",
+  "runs": [
+    {
+      "kind": "opening",
+      "index": 1,
+      "success": false,
+      "stages": [
+        "entry"
+      ],
+      "max_follow_lateral_error": 0.0,
+      "max_follow_heading_error": 0.0,
+      "follow_samples": 0,
+      "min_reference_wall_clearance": null,
+      "reference_samples_in_tunnel": 0,
+      "last_reference": [
+        -5.197430667121488,
+        3.437901466485481,
+        0.6607721650207216
+      ],
+      "last_stage": "entry",
+      "elapsed_wall": 116.511598091005
+    }
+  ],
+  "error": "entry failed: 6",
+  "cmd_vel_publishers": [
+    "velocity_arbiter"
+  ],
+  "single_writer_matches_motion_state_participant": true,
+  "owner_events": [
+    {
+      "time": 67117.095072924,
+      "owner": "stop",
+      "generation": 0,
+      "reason": "Startup stop"
+    },
+    {
+      "time": 67126.530906715,
+      "owner": "stop",
+      "generation": 1,
+      "reason": "Requested stop"
+    },
+    {
+      "time": 67127.094067698,
+      "owner": "nav",
+      "generation": 1,
+      "reason": "Selected nav"
+    },
+    {
+      "time": 67243.018741567,
+      "owner": "stop",
+      "generation": 2,
+      "reason": "Operator stop"
+    },
+    {
+      "time": 67243.037141285,
+      "owner": "stop",
+      "generation": 3,
+      "reason": "Operator stop"
+    }
+  ]
+}

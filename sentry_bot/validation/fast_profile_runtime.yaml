@@ -1,0 +1,12 @@
+/tunnel_controller:
+  ros__parameters:
+    lateral_kp: 3.0
+    lateral_max_speed: 0.12
+    lateral_min_speed: 0.1
+    max_lateral_error: 0.08
+    obstacle_lookahead: 0.8
+    obstacle_topic: /terrain_map_odom
+    speed: 0.4
+    timeout: 60.0
+    use_sim_time: true
+

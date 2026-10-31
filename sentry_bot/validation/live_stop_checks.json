@@ -29,21 +29,21 @@
         "tunnel:align",
         "tunnel:follow"
       ],
-      "max_follow_lateral_error": 0.0015450239880010486,
-      "max_follow_heading_error": 0.025916581973433495,
+      "max_follow_lateral_error": 0.001750249182805419,
+      "max_follow_heading_error": 0.025634201243519783,
       "follow_samples": 15,
       "min_reference_wall_clearance": null,
       "reference_samples_in_tunnel": 0,
       "last_reference": [
-        -4.008985853279959,
-        3.474345805511285,
-        -0.011630351895782303
+        -4.014088194797839,
+        3.469566770069153,
+        -0.011561104627354098
       ],
       "last_stage": "tunnel:follow",
-      "measured_travel_before_cancel": 0.0520188005493946,
-      "cancel_requested_at": 55340.969188063,
+      "measured_travel_before_cancel": 0.05051969372428345,
+      "cancel_requested_at": 67643.032607428,
       "result": "Mission canceled",
-      "stop_confirmed_after": 1.0447469190039556,
+      "stop_confirmed_after": 1.3686108559923014,
       "passed": true
     },
     {
@@ -54,36 +54,34 @@
         "tunnel:align",
         "tunnel:waiting_data",
         "tunnel:align",
-        "tunnel:waiting_data",
-        "tunnel:align",
         "tunnel:follow",
         "tunnel:waiting_data",
         "tunnel:follow"
       ],
-      "max_follow_lateral_error": 0.0042951833456754684,
-      "max_follow_heading_error": 0.01373131014406681,
-      "follow_samples": 95,
+      "max_follow_lateral_error": 0.0037714880891144276,
+      "max_follow_heading_error": 0.006808566395193338,
+      "follow_samples": 48,
       "min_reference_wall_clearance": null,
       "reference_samples_in_tunnel": 0,
       "last_reference": [
-        -3.183832042217005,
-        3.4648107645455197,
-        -0.011545993021030744
+        -3.402154210488292,
+        3.4625584894027033,
+        -0.011384212601246954
       ],
       "last_stage": "tunnel:follow",
       "result": "tunnel failed: Obstacle inside tunnel swept area",
       "reference_stop_position": [
-        -3.183832042217005,
-        3.4648107645455197
+        -3.402154210488292,
+        3.4625584894027033
       ],
       "passed": true
     }
   ],
   "error": null,
   "model_changed": false,
-  "fixture_create_output": "[INFO] [1793436479.159581244] [ros_gz_sim]: Requested creation of entity.\n[INFO] [1793436479.159798332] [ros_gz_sim]: OK creation of entity.\n",
+  "fixture_create_output": "[INFO] [1793448779.827134777] [ros_gz_sim]: Requested creation of entity.\n[INFO] [1793448779.827290205] [ros_gz_sim]: OK creation of entity.\n",
   "fixture_observed_pose": {
-    "name": "sentry_validation_blocker_72996",
+    "name": "sentry_validation_blocker_102554",
     "id": 96,
     "position": {
       "x": -2.5,

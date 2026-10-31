@@ -1,6 +1,6 @@
 # Sentry business workspace
 
-Status: implemented; current UL simulation passed 10 opening missions and 10 tunnel traversals in each direction with Point-LIO + small_gicp. Physical-robot acceptance remains separate.
+Status: implemented. The initial 0.2 m/s profile passed 10 opening missions and 10 traversals in each direction. The current 0.4 m/s profile passed two full openings and two traversals in each direction with Point-LIO + small_gicp. Physical-robot acceptance remains separate.
 
 This Git repository owns business tasks and motion arbitration. It depends on the sibling `gazebo` and `sentry_nav` workspaces. Localization remains Point-LIO + small_gicp. No z_nav, z-localization or AGV runtime dependency is added.
 
@@ -11,6 +11,8 @@ From the parent directory, source `source_all.bash`, then build in `sentry_bot` 
 ```bash
 ros2 launch sentry_business_bringup opening_simulation_launch.py
 ```
+
+Business startup defaults to the measured tunnel entry (-4.1, 3.46), chassis yaw 0 radians, already aligned with the passage. Override `x`, `y`, `yaw` launch arguments if needed. Tunnel cruise is 0.4 m/s; the forward obstacle guard extends to 0.8 m from the chassis origin. Exit deceleration and convergence limits remain enabled.
 
 The explicit debugging option is `localization:=ground_truth`. Do not run a second simulation alongside an existing instance. Launch the existing operator console separately using its launcher.
 
@@ -39,7 +41,7 @@ Run the pure geometry, routing and ownership tests with the packages on PYTHONPA
 
 ### Current verification evidence
 
-`validation/runtime_acceptance_current.json` records a single uninterrupted LIO suite: 10/10 complete openings, 10/10 forward and 10/10 reverse traversals. Maximum follow-stage lateral error was 0.01958 m across all 30 runs. Independent reference-pose measurements found at least 0.09636 m side-wall clearance. Reference poses never drive control. The robot model, lidar mounting, sensor coordinates, map radius and upstream navigation algorithms remain unchanged.
+`validation/runtime_acceptance_current.json` records the original 0.2 m/s uninterrupted LIO suite: 10/10 complete openings, 10/10 forward and 10/10 reverse traversals. Maximum follow-stage lateral error was 0.01958 m across all 30 runs. Independent reference-pose measurements found at least 0.09636 m side-wall clearance. Reference poses never drive control. The robot model, lidar mounting, sensor coordinates, map radius and upstream navigation algorithms remain unchanged.
 
 Twelve business tests and four simulation smoke/rate tests passed. `colcon test-result` for the business workspace reports 12 tests, no failures or skips. `validation/motion_safety.json` records eight isolated ROS fault-injection checks; `nav_adapter_checks.json` records three adapter checks. `live_stop_checks.json` records action cancellation and a verified physical blocker stopping the robot before collision; fixture removal is checked. `chassis_command_graph_current.txt` confirms the arbiter is the sole chassis writer with the console running.
 
@@ -48,3 +50,5 @@ Short observation delays command immediate zero velocity. The controller resumes
 Business-mode gimbal TF publication is limited to 100 Hz to avoid transform-listener backlog from 1000 Hz joint updates. Measured angles, sample timestamps and mount coordinates are preserved. Ordinary mode retains its prior unlimited setting.
 
 Earlier failed probes are preserved for diagnosis; they are not passing acceptance evidence. The ground-truth debug run completed but its JSON write failed because of an incorrectly supplied report path; the retained console log is diagnostic only. No real-robot validation or referee/occupation-duration integration is claimed.
+
+`validation/runtime_fast_profile.json` records the current 0.4 m/s profile: 2 complete openings and 2 traversals per direction, all passed. Maximum follow lateral error 0.02339 m. Runtime parameters and spawn pose are embedded in that report. The older 30-run result is not claimed for the faster profile.

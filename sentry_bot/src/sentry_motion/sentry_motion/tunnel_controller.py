@@ -50,6 +50,7 @@ class TunnelController(Node):
         self.declare_parameter("speed", 0.2)
         self.declare_parameter("max_lateral_error", 0.08)
         self.declare_parameter("timeout", 60.0)
+        self.declare_parameter("obstacle_lookahead", 0.6)
         self.declare_parameter("lateral_kp", 3.0)
         self.declare_parameter("lateral_min_speed", 0.10)
         self.declare_parameter("lateral_max_speed", 0.12)
@@ -157,7 +158,11 @@ class TunnelController(Node):
         pts = np.einsum(
             "ij,nj->ni", rotation(odom.pose.pose.orientation).T, pts, optimize=False
         )
-        return blocked_by_points(pts, aligning=stage == "align")
+        return blocked_by_points(
+            pts,
+            aligning=stage == "align",
+            forward_distance=float(self.get_parameter("obstacle_lookahead").value),
+        )
 
     def execute(self, handle):
         result = TraverseTunnel.Result()

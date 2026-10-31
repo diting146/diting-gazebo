@@ -2,7 +2,7 @@
 import numpy as np
 
 
-def blocked_by_points(points, aligning=False):
+def blocked_by_points(points, aligning=False, forward_distance=0.60):
     points = np.asarray(points, dtype=float).reshape(-1, 3)
     if not len(points):
         return False
@@ -15,7 +15,7 @@ def blocked_by_points(points, aligning=False):
         # external swept region is used for the rotation guard.
         swept = (x * x + y * y < 0.43 ** 2) & ((np.abs(x) > 0.29) | (np.abs(y) > 0.27))
     else:
-        front = (x > 0.29) & (x < 0.60) & (np.abs(y) < 0.30)
+        front = (x > 0.29) & (x < forward_distance) & (np.abs(y) < 0.30)
         sides = (np.abs(x) < 0.29) & (np.abs(y) > 0.27) & (np.abs(y) < 0.34)
         swept = front | sides
     return bool(np.any(finite & height & swept))

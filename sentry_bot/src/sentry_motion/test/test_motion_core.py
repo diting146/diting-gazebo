@@ -71,3 +71,12 @@ def test_obstacle_envelope_keeps_low_obstacles_and_excludes_roof_and_walls():
     assert blocked_by_points([[-0.35, 0, 0.08]], aligning=True)
     assert not blocked_by_points([[0.45, 0, 0.18], [0.4, 0.4, 0.08], [0.45, 0, -0.08]])
     assert not blocked_by_points([[0, 0, 0.08]], aligning=True)
+
+
+def test_fast_profile_extends_front_obstacle_guard():
+    from sentry_motion.obstacle_geometry import blocked_by_points
+
+    point = [[0.75, 0, 0.08]]
+    assert not blocked_by_points(point)
+    assert blocked_by_points(point, forward_distance=0.8)
+    assert not blocked_by_points([[0.75, 0, 0.20]], forward_distance=0.8)
