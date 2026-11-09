@@ -14,6 +14,7 @@
 
 """Ground-truth navigation component for the autonomous sentry in the dual scene."""
 
+import math
 import os
 import tempfile
 
@@ -29,13 +30,14 @@ from sentry_sim_bringup.bringup_config import (
     normalized_namespace, topic,
 )
 import yaml
+from sentry_sim_bringup.scene_geometry import load_scene_geometry
 
 
 NAV_SERVERS = (
     ('nav2_map_server', 'map_server', []),
     ('nav2_controller', 'controller_server', [('cmd_vel', 'cmd_vel_controller')]),
     ('nav2_smoother', 'smoother_server', []),
-    ('nav2_planner', 'planner_server', []),
+    ('sentry_planner_server', 'planner_server', []),
     ('nav2_behaviors', 'behavior_server', [('cmd_vel', 'cmd_vel_controller')]),
     ('nav2_bt_navigator', 'bt_navigator', [('cmd_vel', 'cmd_vel_nav2_result')]),
     ('nav2_waypoint_follower', 'waypoint_follower', []),
@@ -51,24 +53,49 @@ def _launch_setup(context):
     def value(name):
         return LaunchConfiguration(name).perform(context)
 
+    bringup_share = get_package_share_directory('sentry_sim_bringup')
+    scene = load_scene_geometry(value('scene_file'))
+    bundled_bt = os.path.realpath(value('bt_xml_dir')) == os.path.realpath(
+        os.path.join(bringup_share, 'behavior_trees'))
     namespace = normalized_namespace(value('namespace'))
     sentry_name = value('sentry_name')
     use_sim_time = value('use_sim_time').lower() in ('true', '1', 'yes', 'on')
     spin_speed = float(value('spin_speed'))
+    if not math.isfinite(spin_speed):
+        raise ValueError('spin_speed must be finite (rad/s)')
+    defer_spin = (value('defer_spin_until_exit').lower() in ('true', '1', 'yes', 'on')
+                  and value('tunnel_passage').lower() in ('true', '1', 'yes', 'on'))
+    initial_spin_speed = 0.0 if defer_spin else spin_speed
+    try:
+        normal_speed = float(value('normal_speed'))
+    except ValueError as error:
+        raise ValueError('normal_speed must be finite and positive (m/s)') from error
+    if not math.isfinite(normal_speed) or normal_speed <= 0.0:
+        raise ValueError('normal_speed must be finite and positive (m/s)')
     bt_xml_dir = tempfile.mkdtemp(prefix='sentry_bt_')
     for filename in ('navigate_to_pose_w_replanning_and_recovery.xml',
                      'navigate_through_poses_w_replanning_and_recovery.xml'):
         with open(os.path.join(value('bt_xml_dir'), filename), encoding='utf-8') as stream:
-            tree = behavior_tree_xml(stream.read(), namespace)
+            tree = behavior_tree_xml(
+                stream.read(), namespace,
+                value('tunnel_passage').lower() in ('true', '1', 'yes', 'on'),
+                use_sim_time, exit_spin_speed=spin_speed if defer_spin else 0.0,
+                keep_exit_spin_at_goal=defer_spin, scene=scene if bundled_bt else None)
         with open(os.path.join(bt_xml_dir, filename), 'w', encoding='utf-8') as stream:
             stream.write(tree)
-    with open(value('params_file'), encoding='utf-8') as stream:
+    params_file = value('params_file')
+    bundled_params = os.path.realpath(params_file) == os.path.realpath(os.path.join(
+        bringup_share, 'config', 'nav2_params_ground_truth.yaml'))
+    with open(params_file, encoding='utf-8') as stream:
         params = navigation_parameters(
             yaml.safe_load(stream), namespace, value('map'), use_sim_time,
-            bt_xml_dir,
+            bt_xml_dir, scene=scene if bundled_params else None,
         )
     params['planner_server']['ros__parameters']['GridBased']['plugin'] = value('planner_plugin')
-    params['fake_vel_transform']['ros__parameters']['init_spin_speed'] = spin_speed
+    params['fake_vel_transform']['ros__parameters']['init_spin_speed'] = initial_spin_speed
+    controller = params['controller_server']['ros__parameters']['FollowPath']
+    controller['v_linear_min'] = -normal_speed
+    controller['v_linear_max'] = normal_speed
     with tempfile.NamedTemporaryFile(
         mode='w', prefix='sentry_nav_', suffix='.yaml', delete=False, encoding='utf-8'
     ) as stream:
@@ -123,7 +150,7 @@ def _launch_setup(context):
                 'input_topic': topic(namespace, 'cmd_vel_chassis'),
                 'output_topic': f'/{sentry_name}/cmd_vel',
                 'timeout_ms': 200, 'publish_rate_hz': 50.0,
-                'idle_spin_speed': spin_speed,
+                'idle_spin_speed': initial_spin_speed,
                 'spin_topic': topic(namespace, 'cmd_spin'),
             }],
         ),
@@ -139,12 +166,13 @@ def _launch_setup(context):
             }],
         ),
         Node(
-            package='sentry_sim_bringup', executable='gimbal_world_lock',
+            package='sentry_sim_bringup', executable='sensor_gimbal_world_lock',
             name='gimbal_world_lock', namespace=namespace, output='screen',
             condition=IfCondition(LaunchConfiguration('gimbal_world_lock')),
             parameters=[{
                 'use_sim_time': use_sim_time,
                 'odom_topic': f'/{sentry_name}/odometry_raw',
+                'feedback_source': 'odometry',
                 'joint_states_topic': topic(namespace, 'joint_states'),
                 'command_topic': f'/{sentry_name}/gimbal_yaw_cmd',
             }],
@@ -173,6 +201,8 @@ def generate_launch_description():
     """Declare navigation component arguments; robot spawning is owned by the dual scene."""
     bringup_dir = get_package_share_directory('sentry_sim_bringup')
     arguments = [
+        DeclareLaunchArgument('scene_file', default_value=os.path.join(
+            bringup_dir, 'config', 'scene_geometry.yaml')),
         DeclareLaunchArgument('namespace', default_value='sentry_robot1'),
         DeclareLaunchArgument('map', default_value=os.path.join(
             bringup_dir, 'maps', 'diting_3v3_field.yaml')),
@@ -184,8 +214,13 @@ def generate_launch_description():
         DeclareLaunchArgument('use_respawn', default_value='False'),
         DeclareLaunchArgument('sentry_name', default_value='sentry_robot1'),
         DeclareLaunchArgument('spin_speed', default_value=DEFAULT_SPIN_SPEED),
+        DeclareLaunchArgument('defer_spin_until_exit', default_value='False',
+                              description='Internal fixed-route spin ownership; start with zero spin.'),
+        DeclareLaunchArgument('normal_speed', default_value='1.0',
+                              description='Maximum normal-route XY speed in m/s.'),
         DeclareLaunchArgument('gimbal_world_lock', default_value='True'),
         DeclareLaunchArgument('planner_plugin', default_value=DEFAULT_PLANNER),
+        DeclareLaunchArgument('tunnel_passage', default_value='True'),
         DeclareLaunchArgument('bt_xml_dir', default_value=os.path.join(
             bringup_dir, 'behavior_trees')),
     ]

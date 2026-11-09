@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>sentry_runtime</name>
+  <version>0.1.0</version>
+  <description>Tunnel region monitor and simulated referee state adapter.</description>
+  <maintainer email="maintainer@example.invalid">Diting navigation maintainers</maintainer>
+  <license>Apache-2.0</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>geometry_msgs</depend>
+  <depend>rclcpp</depend>
+  <depend>rclpy</depend>
+  <depend>std_msgs</depend>
+  <depend>tf2_ros</depend>
+  <depend>sentry_system_interfaces</depend>
+  <exec_depend>python3-yaml</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>rmu_gazebo_simulator</exec_depend>
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

@@ -827,6 +827,10 @@ void YAstar::initCostMap(bool sparse){
     }
 }
 
+void YAstar::setMotionValidator(std::function<bool(const Eigen::Vector2f&, const Eigen::Vector2f&)> validator){
+    motionValidator = std::move(validator);
+}
+
 std::vector<Eigen::Vector2f> YAstar::search(Eigen::Vector2f start, Eigen::Vector2f end){
     if(!reseted){
         reset();
@@ -857,8 +861,21 @@ std::vector<Eigen::Vector2f> YAstar::search(Eigen::Vector2f start, Eigen::Vector
     Node startNode(0, std::hypotf(static_cast<float>(startx - endx), static_cast<float>(starty - endy)), -1);
     const Eigen::Vector2f startCellCenter = transformPos(startCell);
     const Eigen::Vector2f endCellCenter = transformPos(endCell);
-    if (!std::isfinite(costMap(starty, startx)) || !std::isfinite(costMap(endy, endx)) ||
-        lineInObsticle(start, startCellCenter) || lineInObsticle(endCellCenter, end)) return {};
+    if (!std::isfinite(costMap(starty, startx)) || !std::isfinite(costMap(endy, endx))) return {};
+    if (motionValidator) {
+        if (!motionValidator(start, start) || !motionValidator(end, end)) return {};
+        if (startx == endx && starty == endy) {
+            return motionValidator(start, end) ? std::vector<Eigen::Vector2f>{start, end} :
+                   std::vector<Eigen::Vector2f>{};
+        }
+    } else if (lineInObsticle(start, startCellCenter) || lineInObsticle(endCellCenter, end)) {
+        return {};
+    }
+    const auto position = [&](int x, int y) -> Eigen::Vector2f {
+        if (motionValidator && x == startx && y == starty) return start;
+        if (motionValidator && x == endx && y == endy) return end;
+        return transformPos(Eigen::Vector2i{x, y});
+    };
     const auto startedAt = std::chrono::steady_clock::now();
     int expansions = 0;
     nodeMap(starty, startx) = startNode;
@@ -877,10 +894,7 @@ std::vector<Eigen::Vector2f> YAstar::search(Eigen::Vector2f start, Eigen::Vector
             // 找到终点
             std::vector<Eigen::Vector2f> path;
             while(index!=-1){
-                path.emplace_back(
-                    (static_cast<float>(x) + 0.5F) * mapping + originPos.x(),
-                    (static_cast<float>(y) + 0.5F) * mapping + originPos.y()
-                );
+                path.emplace_back(position(x, y));
                 index = nodeMap.data()[index].parent;
                 if(index==-1){
                     break;
@@ -910,6 +924,7 @@ std::vector<Eigen::Vector2f> YAstar::search(Eigen::Vector2f start, Eigen::Vector
                     // float newCost = nodeMap.data()[index].cost + costMap.data()[nindex] * (1.f + static_cast<int>(i / 4) * 0.414f); // 分支优化
                     float newCost = nodeMap(y, x).cost + costMap(ny, nx) * costWeight * (i < 4 ? 1.f: 1.414f); // 依赖分支预测
                     if (newCost < nd.cost){
+                        if (motionValidator && !motionValidator(position(x, y), position(nx, ny))) continue;
                         nd.cost = newCost;
                         auto delx = static_cast<float>(nx - endx);
                         auto dely = static_cast<float>(ny - endy);

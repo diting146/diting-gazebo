@@ -116,6 +116,9 @@ public:
     void setMap(int width, int height, float mapping, float originx, float originy, std::vector<int8_t>& data);
     void setCostMapSnapshot(const std::vector<float>& costs);
     void setSearchLimits(int maxExpansions, double maxSeconds, std::function<bool()> cancelled = {});
+    // Optional body-motion constraint. With it, endpoint nodes use the exact
+    // requested coordinates, not potentially colliding cell-center detours.
+    void setMotionValidator(std::function<bool(const Eigen::Vector2f&, const Eigen::Vector2f&)> validator);
 
     // 设置历史记录地图
     // @param historyMap 历史地图，表示车辆真实走过的路径。默认会在原始地图上创建mask表示可行。
@@ -317,6 +320,7 @@ protected:
     int maxExpansions = DEFAULT_MAX_EXPANSIONS;
     double maxSearchSeconds = DEFAULT_MAX_SEARCH_SECONDS;
     std::function<bool()> cancellation;
+    std::function<bool(const Eigen::Vector2f&, const Eigen::Vector2f&)> motionValidator;
     std::atomic<bool> reseted;                                                  // 是否重置过
     std::atomic<bool> resetedCostMap;                                           // 是否重置过costmap
     float occThs = 0.5f;                                                        // 占用阈值

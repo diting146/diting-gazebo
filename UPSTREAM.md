@@ -43,40 +43,8 @@ Snapshot revisions:
 - `point_lio`: `e85e79558cf746f6699888a54285fe48b3b0ac71`
 - `pb_nav2_plugins`: `e6778ca44d9e88aa612a3c6c87d536a8cfa21705`
 
-## 2026-10-22 integration
+## 2026-11-01 navigation additions
 
-The overlay now defaults to sensor-only Point-LIO and small_gicp localization.
-Local additions include instantaneous cloud adaptation into the chassis frame,
-IMU-based gimbal stabilization, terrain-cloud obstacle layers, mapping bringup,
-and reference-only error monitoring. Upstream C++ estimator source is retained;
-the simulation parameter snapshot and custom integration package carry the
-configuration changes.
-
-The tracked `diting_3v3_field_mapped.pcd` prior contains 242,239 downsampled
-sensor-mapping points in the original mapping coordinates. The 5,483,668-point
-raw capture is kept locally and is not distributed in Git. The STL-derived
-`diting_3v3_field.pcd` remains a separate geometric reference.
-
-Model geometry follows collaborator commit `ca4d876`, including wider wheel
-positions and the raised, pitched lidar. Local costmap radii are 0.40 m to cover
-the widened wheel collision envelope. Earlier dynamic acceptance measurements
-precede that geometry update; see `docs/validation/2026-10-22.md` for the scope.
-
-## 2026-10-27 dual-robot YAstar integration
-
-`src/pb2025_sentry_nav/tdt_yastar_planner` imports the two-dimensional YAstar
-implementation from the audited TDT Nav Kit source snapshot (`src/YAstar`).
-The original upstream commit was not recorded with that snapshot. The imported
-algorithm is copyright 2026 Rongxuan Ye and BoLin Li under MIT; the Nav2 adapter
-is project code under Apache-2.0. The complete MIT notice is retained in
-`tdt_yastar_planner/TDT_LICENSE_NOTICE.md`. Local adaptations add a Nav2 costmap
-snapshot, bounded search, path headers/headings, and regression coverage; the
-kinodynamic planner and MinimumSnap are not imported.
-
-The custom simulation integration now uses one autonomous sentry and one
-manual obstacle robot, namespaced sensor/control wiring, simulation command
-watchdogs, and shared wait/replan behavior trees. Only the integration package
-and the new planner are published in this change; existing estimator, model,
-and `fake_vel_transform` source is retained from the remote baseline. Validation
-scope and remaining differences from the development workspace are recorded in
-`docs/validation/2026-10-27.md`.
+- `src/pb2025_sentry_nav/sentry_planner_server` derives from official Nav2 tag 1.1.20, commit `a097086719c88f781aa59788eca29ac6ca5e56db`. Apache-2.0 sources and LICENSE are preserved; the package has its own UPSTREAM.md describing goal-scoped cancellation changes. It does not replace system Nav2 libraries.
+- `tdt_yastar_planner/src/tdt_trajectory_optimizer.cpp` extracts the TDT Nav Kit MinimumSnapOsqp Close backend (quintic minimum-jerk geometry), retaining the MIT notice. Original local minimumSnap.cpp SHA256: `368e220c8cfc4928decd8668c3d09c7bebaf8492b59be134a8337b5f5a56d1c0`; see TDT_LICENSE_NOTICE.md. OSQP and Kinodynamic A* are not integrated.
+- Existing small_gicp snapshots in root and overlay have matching local initialization/registration-quality changes; original source revision and license above remain the base provenance.

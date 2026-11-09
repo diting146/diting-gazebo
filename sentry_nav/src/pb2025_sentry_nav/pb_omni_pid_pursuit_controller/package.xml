@@ -15,6 +15,7 @@
   <depend>nav2_costmap_2d</depend>
   <depend>rclcpp</depend>
   <depend>geometry_msgs</depend>
+  <depend>std_msgs</depend>
   <depend>nav2_msgs</depend>
   <depend>pluginlib</depend>
   <depend>tf2</depend>
@@ -22,6 +23,7 @@
   <depend>visualization_msgs</depend>
 
   <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_cmake_gtest</test_depend>
   <test_depend>ament_cmake_clang_format</test_depend>
   <test_depend>ament_cmake_clang_tidy</test_depend>
   <test_depend>ament_cmake_black</test_depend>

@@ -4,28 +4,39 @@
 
 This is a ROS 2 Humble / Gazebo Fortress colcon workspace. This repository vendors source snapshots under `src/`; original repositories and revisions are recorded in `UPSTREAM.md`.
 
+Current supported simulation entry: `sentry_sim_bringup dual_sentry_simulation_launch.py`. It creates one autonomous sentry and one keyboard-controlled obstacle robot. Default navigation is Point-LIO + small_gicp + YAstar. The fixed route and simulated HP/low-HP return are enabled by default; spin is disabled by default. Explicit spin is deferred until the sentry has fully exited the tunnel during the fixed route. See `docs/当前构建与依赖说明_2026-11-06.md` for the scoped build and dependency instructions.
+
 - `src/rmu_gazebo_simulator/rmu_gazebo_simulator/`: simulator launch files, YAML configuration, Python referee nodes, and `resource/` worlds/models. The current configuration spawns two rm25 robots in `diting_3v3_field`.
 - `src/rmoss_gazebo/`: Gazebo plugins, robot control interfaces, camera integration, and manual test scripts.
 - `src/pb2025_sentry_nav/`: Nav2 bringup, controllers, localization, odometry, and terrain processing. Navigation maps and parameters live in `pb2025_nav_bringup/`.
 - `src/pb2025_robot_description/`: robot XMacro descriptions and visualization resources.
-- `sentry_nav/src/sentry_sim_bringup/`: custom LIO/navigation launches, configuration, model generator, sensor adapters, and map assets; keep project-specific navigation behavior here.
+- `sentry_nav/src/sentry_sim_bringup/`: the current dual scene, fixed-route task, simulation gateways, maps and navigation parameters.
+- `sentry_nav/src/sentry_tunnel_bt/`: tunnel behavior-tree plugins. The overlay also contains 15 package names duplicated under the root `src/`; always limit discovery to the intended workspace's `src/`.
 - `build/`, `install/`, and `log/`: generated colcon outputs; edit source files instead.
 
 ## Build, Test, and Development Commands
 
-Run from the workspace root in Bash:
+Prefer `bash "$WS/tools/build_current.bash" all --check` to verify the current package selection and installed paths, then use `root`, `overlay`, or `all` without `--check` only when an actual build is needed and dependencies are installed. The script creates an isolated environment per layer and never clears existing outputs. See `docs/包归属与受控构建_2026-11-06.md` for ownership and scope; `--check` is not a build or runtime acceptance test. Detailed manual commands remain below.
+
+Use a new Bash terminal with only ROS sourced, then build the root layer and overlay separately. Do not source `source_all.bash` before rebuilding the root layer: that would put the overlay in the root build's parent environment. The current supported entry needs these six root packages; this is not an all-upstream-packages build:
 
 ```bash
 source /opt/ros/humble/setup.bash
-rosdep install -r --from-paths src --ignore-src --rosdistro humble -y
-colcon build --base-paths src --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release
-source install/setup.bash
-ros2 launch rmu_gazebo_simulator bringup_sim.launch.py
+export WS=/home/hui/diting-gazebo-feat-sentry-nav-simulation
+cd "$WS"
+colcon build --base-paths src --symlink-install \
+  --packages-select rmoss_gz_plugins rmu_gazebo_simulator pb2025_robot_description \
+  pb_omni_pid_pursuit_controller tdt_yastar_planner sentry_planner_server \
+  --cmake-args -DCMAKE_BUILD_TYPE=Release
+source "$WS/install/setup.bash"
+cd "$WS/sentry_nav"
+colcon build --base-paths src --symlink-install \
+  --packages-up-to sentry_sim_bringup --cmake-args -DCMAKE_BUILD_TYPE=Release
+source "$WS/source_all.bash"
+ros2 launch sentry_sim_bringup dual_sentry_simulation_launch.py use_rviz:=True
 ```
 
-These commands load ROS, install declared dependencies, build packages, load the workspace, and launch simulation. For focused builds, add `--packages-select <package>` when dependencies are already built. Start Gazebo playback to advance simulation.
-
-Build the navigation overlay separately from `sentry_nav/` with `--base-paths src` after sourcing the root installation. Load both with `source source_all.bash`. Default navigation uses sensor-only `lio`; `ground_truth` is an explicit debugging option. See README for navigation, mapping, and console commands. Do not commit raw mapping captures or generated colcon outputs.
+Install dependencies first using the scoped commands in `docs/当前构建与依赖说明_2026-11-06.md`; a blanket rosdep/build over all source snapshots includes optional legacy RMOSS dependencies. The overlay selection currently contains 17 local packages. For focused incremental builds, use `--packages-select <package>` in its owning layer only when dependencies are already built. The launcher starts Gazebo running; resume playback if it has been paused manually.
 
 ## Coding Style & Naming Conventions
 

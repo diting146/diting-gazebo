@@ -37,12 +37,15 @@ public:
   explicit SensorScanGenerationNode(const rclcpp::NodeOptions & options);
 
 private:
+  void odometryHandler(const nav_msgs::msg::Odometry::ConstSharedPtr & odometry);
+
   void laserCloudAndOdometryHandler(
     const nav_msgs::msg::Odometry::ConstSharedPtr & odometry,
     const sensor_msgs::msg::PointCloud2::ConstSharedPtr & laserCloud2);
 
-  tf2::Transform getTransform(
-    const std::string & target_frame, const std::string & source_frame, const rclcpp::Time & time);
+  bool getTransform(
+    const std::string & target_frame, const std::string & source_frame, const rclcpp::Time & time,
+    tf2::Transform & transform);
 
   void publishTransform(
     const tf2::Transform & transform, const std::string & parent_frame,
@@ -69,8 +72,6 @@ private:
   using SyncPolicy = message_filters::sync_policies::ApproximateTime<
     nav_msgs::msg::Odometry, sensor_msgs::msg::PointCloud2>;
   std::unique_ptr<message_filters::Synchronizer<SyncPolicy>> sync_;
-
-  tf2::Transform tf_lidar_to_robot_base_;
 };
 
 }  // namespace sensor_scan_generation

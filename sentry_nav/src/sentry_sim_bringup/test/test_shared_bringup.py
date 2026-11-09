@@ -134,7 +134,18 @@ def _nav_yaml(context, node, namespace):
         document = yaml.safe_load(stream)
     if namespace:
         assert set(document) == {namespace}
-        return document[namespace]
+        document = document[namespace]
+    navigator = document['bt_navigator']['ros__parameters']
+    plugins = navigator['plugin_lib_names']
+    # A misindented YAML list can parse successfully as one long string; it
+    # still cannot be loaded by Nav2. Check the actual generated parameters.
+    assert 'sentry_tunnel_bt_node' in plugins
+    assert 'nav2_compute_path_to_pose_action_bt_node' in plugins
+    assert 'nav2_follow_path_action_bt_node' in plugins
+    assert all(isinstance(item, str) and ' ' not in item for item in plugins)
+    for client in ('navigate_to_pose', 'navigate_through_poses'):
+        name = 'bt_navigator_' + client + '_rclcpp_node'
+        assert document[name]['ros__parameters']['use_sim_time'] == navigator['use_sim_time']
     return document
 
 
@@ -156,9 +167,10 @@ def _assert_same_navigation(single, dual, namespace, path=()):
         assert dual in allowed, (path, single, dual)
 
 
-def test_namespace_changes_preserve_navigation_tuning(launches):
+@pytest.mark.parametrize('role', ['navigation', 'lio'])
+def test_namespace_changes_preserve_navigation_tuning(launches, role):
     """Changing a navigation namespace must preserve all navigation tuning."""
-    module = launches.modules['navigation']
+    module = launches.modules[role]
     documents = []
     for namespace in ('', 'sentry_robot1'):
         context = _context(module, {'namespace': namespace, 'spin_speed': '0'})
@@ -170,7 +182,8 @@ def test_namespace_changes_preserve_navigation_tuning(launches):
             'tdt_yastar_planner/YastarPlanner')
         assert params['controller_server']['ros__parameters']['failure_tolerance'] == 0.6
         for name in ('local_costmap', 'global_costmap'):
-            assert params[name][name]['ros__parameters']['robot_radius'] == 0.4
+            costmap = params[name][name]['ros__parameters']
+            _assert_body_footprint(costmap, namespace)
         navigator = params['bt_navigator']['ros__parameters']
         directories = set()
         for key in ('default_nav_to_pose_bt_xml', 'default_nav_through_poses_bt_xml'):
@@ -179,11 +192,17 @@ def test_namespace_changes_preserve_navigation_tuning(launches):
             assert generated_path.is_file()
             generated = ET.parse(generated_path).getroot()
             original = ET.parse(PACKAGE / 'behavior_trees' / generated_path.name).getroot()
-            for node in generated.iter():
-                if 'robot_base_frame' in node.attrib:
-                    expected = namespace + '/gimbal_yaw_fake' if namespace else 'gimbal_yaw_fake'
-                    assert node.attrib['robot_base_frame'] == expected
-                    node.attrib['robot_base_frame'] = 'gimbal_yaw_fake'
+            for source_node in original.iter():
+                if source_node.tag in {'TunnelPassage', 'TunnelRouteGuard'}:
+                    source_node.set('tunnel_half_width', '0.4')
+            for node, source_node in zip(generated.iter(), original.iter()):
+                for attribute in ('robot_base_frame', 'body_frame', 'control_frame'):
+                    if attribute in source_node.attrib:
+                        original_frame = source_node.attrib[attribute]
+                        expected = (namespace + '/' + original_frame
+                                    if namespace else original_frame)
+                        assert node.attrib[attribute] == expected
+                        node.attrib[attribute] = original_frame
             assert ET.tostring(generated) == ET.tostring(original)
             if key == 'default_nav_through_poses_bt_xml':
                 passed_goals = generated.find('.//RemovePassedGoals')
@@ -379,7 +398,8 @@ def test_dual_scene_owns_both_robots_and_one_navigation_stack(launches):
 
     scene_nodes = _nodes(launches, actions)
     assert {node['executable'] for node in scene_nodes} == {
-        'sim_serial_gateway', 'parameter_bridge', 'create'}
+        'sim_serial_gateway', 'parameter_bridge', 'create', 'startup_navigation',
+        'referee_hp.py'}
     manual_gateways = [node for node in scene_nodes
                        if node['executable'] == 'sim_serial_gateway']
     assert len(manual_gateways) == 1
@@ -395,7 +415,7 @@ def test_dual_scene_owns_both_robots_and_one_navigation_stack(launches):
                for node in spawns}
     assert set(by_name) == {'sentry_robot1', 'rm25_robot1'}
     for name, expected in (
-        ('sentry_robot1', ['-5.3', '3.0', '0.3', '-1.57079632679']),
+        ('sentry_robot1', ['-4.6', '3.475', '0.3', '0.0']),
         ('rm25_robot1', ['5.3', '-3.0', '0.3', '0.0']),
     ):
         arguments = by_name[name]['arguments']
@@ -474,7 +494,8 @@ def test_sensor_localization_is_independent_of_ground_truth(launches, mapping):
     assert params['point_lio']['ros__parameters']['publish']['tf_send_en'] is False
     assert params['loam_interface']['ros__parameters']['odom_frame'] == 'sentry_robot1/odom'
     for costmap in ('local_costmap', 'global_costmap'):
-        assert params[costmap][costmap]['ros__parameters']['robot_radius'] == 0.4
+        _assert_body_footprint(
+            params[costmap][costmap]['ros__parameters'], 'sentry_robot1')
     if mapping:
         assert {'planner_server', 'controller_server', 'small_gicp_relocalization',
                 'fake_vel_transform', 'localization_error_monitor'}.isdisjoint(names)
@@ -485,7 +506,8 @@ def test_sensor_localization_is_independent_of_ground_truth(launches, mapping):
         assert 'small_gicp_relocalization' in names
         gicp = _parameters(context, _node(launches, actions, 'small_gicp_relocalization'))
         assert Path(gicp['prior_pcd_file']).is_file()
-        assert list(gicp['init_pose']) == [-5.3, 3.0, 0.0, 0.0, 0.0, -1.57079632679]
+        assert list(gicp['initial_robot_pose']) == [-4.6, 3.475, 0.0, 0.0, 0.0, 0.0]
+        assert 'init_pose' not in gicp
         reference = _parameters(context, _node(launches, actions, 'sim_reference_pose'))
         assert reference['odom_output'] == '/sentry_robot1/reference/odometry'
         assert reference['pose_output'] == '/sentry_robot1/reference/pose'
@@ -507,3 +529,510 @@ def test_dual_selects_lio_without_restoring_single_scene(launches):
     assert Path(forwarded['params_file']).name == 'nav2_params_lio.yaml'
     assert Path(forwarded['prior_pcd_file']).name == 'diting_3v3_field_mapped.pcd'
     assert len([node for node in _nodes(launches, actions) if node['executable'] == 'create']) == 2
+
+
+def _assert_body_footprint(costmap, namespace):
+    """Verify full dimensions in the body frame rather than a half-width circle."""
+    expected = (namespace + '/' if namespace else '') + 'chassis'
+    assert costmap['robot_base_frame'] == expected
+    assert 'robot_radius' not in costmap
+    assert costmap['footprint_padding'] == 0.005
+    assert yaml.safe_load(costmap['footprint']) == [
+        [-0.288, -0.267], [0.288, -0.267], [0.288, 0.267], [-0.288, 0.267]]
+
+
+def test_body_and_control_frames_remain_distinct(launches):
+    """Changing the footprint frame must not double-rotate chassis commands."""
+    for mode in ('navigation', 'lio'):
+        context = _context(launches.modules[mode], {'namespace': 'sentry_robot1'})
+        actions = launches.modules[mode]._launch_setup(context)
+        params = _nav_yaml(context, _node(launches, actions, 'controller_server'), 'sentry_robot1')
+        controller = params['controller_server']['ros__parameters']['FollowPath']
+        assert controller['control_frame'] == 'sentry_robot1/gimbal_yaw_fake'
+        assert controller['use_polygon_collision_check'] is True
+        assert controller['collision_prediction_time'] == 0.5
+        transform = params['fake_vel_transform']['ros__parameters']
+        assert transform['robot_base_frame'] == 'sentry_robot1/chassis'
+        assert transform['fake_robot_base_frame'] == 'sentry_robot1/gimbal_yaw_fake'
+
+
+@pytest.mark.parametrize('role', ['dual', 'navigation', 'lio'])
+def test_default_spin_is_off_and_explicit_spin_is_preserved(launches, role):
+    """A normal launch must match basic navigation; gyro requires an explicit value."""
+    module = launches.modules[role]
+    for overrides, expected in (({}, 0.0), ({'spin_speed': '3.14'}, 3.14)):
+        context = _context(module, overrides)
+        assert float(context.launch_configurations['spin_speed']) == expected
+        actions = module._launch_setup(context)
+        if role == 'dual':
+            forwarded = _include_arguments(
+                context, _include(launches, actions, LAUNCH_FILES['lio']))
+            assert float(forwarded['spin_speed']) == expected
+        else:
+            namespace = context.launch_configurations['namespace']
+            gateway = _parameters(context, _node(launches, actions, 'sim_serial_gateway'))
+            assert gateway['idle_spin_speed'] == expected
+            params = _nav_yaml(
+                context, _node(launches, actions, 'fake_vel_transform'), namespace)
+            assert params['fake_vel_transform']['ros__parameters']['init_spin_speed'] == expected
+
+
+def test_tunnel_passage_can_be_disabled_without_changing_recovery():
+    """The diagnostic switch removes preparation and ongoing route protection."""
+    from sentry_sim_bringup.bringup_config import behavior_tree_xml
+    template = (PACKAGE / 'behavior_trees' /
+                'navigate_to_pose_w_replanning_and_recovery.xml').read_text()
+    enabled = ET.fromstring(behavior_tree_xml(template, 'team/sentry'))
+    disabled = ET.fromstring(behavior_tree_xml(template, 'team/sentry', False))
+    guard = enabled.find('.//TunnelPassage')
+    assert guard.attrib['body_frame'] == 'team/sentry/chassis'
+    assert guard.attrib['control_frame'] == 'team/sentry/gimbal_yaw_fake'
+    assert guard.attrib['goal'] == '{goal}'
+    assert disabled.find('.//TunnelPassage') is None
+    assert disabled.find('.//TunnelRouteGuard') is None
+    route_guard = enabled.find('.//TunnelRouteGuard')
+    assert route_guard is not None
+    assert route_guard.attrib['path'] == guard.attrib['path'] == '{path}'
+    assert route_guard.attrib['tunnels'] == guard.attrib['tunnels']
+    pipeline = enabled.find('.//PipelineSequence')
+    assert [child.tag for child in pipeline] == [
+        'RateController', 'TunnelRouteGuard', 'FollowPath']
+    assert pipeline.find('RateController/ComputePathToPose').attrib['path'] == '{path}'
+    assert enabled.find('.//RecoveryNode').attrib == disabled.find('.//RecoveryNode').attrib
+    assert ET.tostring(enabled.find('.//ReactiveFallback')) == ET.tostring(
+        disabled.find('.//ReactiveFallback'))
+
+
+@pytest.mark.parametrize('filename', [
+    'navigate_to_pose_w_replanning_and_recovery.xml',
+    'navigate_through_poses_w_replanning_and_recovery.xml',
+])
+def test_tunnel_clock_follows_explicit_launch_time_mode(filename):
+    """The BT private client must not compare wall epoch against simulation seconds."""
+    from sentry_sim_bringup.bringup_config import behavior_tree_xml
+    template = (PACKAGE / 'behavior_trees' / filename).read_text()
+    for use_sim_time in (True, False):
+        tree = ET.fromstring(behavior_tree_xml(
+            template, 'sentry_robot1', True, use_sim_time))
+        assert tree.find('.//TunnelPassage').attrib['use_sim_time'] == str(use_sim_time).lower()
+
+
+@pytest.mark.parametrize('localization', ['lio', 'ground_truth'])
+def test_source_normal_speed_defaults_are_one_meter_per_second(localization):
+    """Direct parameter-file users get the same normal-route bound as launches."""
+    params = yaml.safe_load((PACKAGE / 'config' /
+                             f'nav2_params_{localization}.yaml').read_text())
+    controller = params['controller_server']['ros__parameters']['FollowPath']
+    assert controller['v_linear_min'] == -1.0
+    assert controller['v_linear_max'] == 1.0
+
+
+@pytest.mark.parametrize('role', ['dual', 'navigation', 'lio'])
+def test_default_normal_speed_is_one_and_forwarded(launches, role):
+    """The scene and either localization expose one explicit normal-speed API."""
+    module = launches.modules[role]
+    context = _context(module)
+    assert float(context.launch_configurations['normal_speed']) == 1.0
+    actions = module._launch_setup(context)
+    if role == 'dual':
+        forwarded = _include_arguments(
+            context, _include(launches, actions, LAUNCH_FILES['lio']))
+        assert float(forwarded['normal_speed']) == 1.0
+    else:
+        namespace = context.launch_configurations['namespace']
+        params = _nav_yaml(context, _node(launches, actions, 'controller_server'), namespace)
+        controller = params['controller_server']['ros__parameters']['FollowPath']
+        assert controller['v_linear_min'] == -1.0
+        assert controller['v_linear_max'] == 1.0
+
+
+@pytest.mark.parametrize('role', ['navigation', 'lio'])
+@pytest.mark.parametrize('namespace', ['', 'sentry_robot1', 'test_team/primary'])
+@pytest.mark.parametrize('normal_speed', [0.8, 0.2])
+def test_normal_speed_only_changes_linear_bounds(launches, role, namespace, normal_speed):
+    """A speed override must preserve PID, lookahead, collision and tunnel settings."""
+    module = launches.modules[role]
+    documents = []
+    for overrides in ({}, {'normal_speed': str(normal_speed)}):
+        context = _context(module, {'namespace': namespace, **overrides})
+        actions = module._launch_setup(context)
+        params = _nav_yaml(context, _node(launches, actions, 'controller_server'), namespace)
+        navigator = params['bt_navigator']['ros__parameters']
+        for key in ('default_nav_to_pose_bt_xml', 'default_nav_through_poses_bt_xml'):
+            generated_path = Path(navigator[key])
+            # Ignore randomized temporary directories, but compare actual BT contents.
+            navigator[key] = generated_path.read_text()
+        documents.append(params)
+    expected = deepcopy(documents[0])
+    controller = expected['controller_server']['ros__parameters']['FollowPath']
+    controller['v_linear_min'] = -normal_speed
+    controller['v_linear_max'] = normal_speed
+    assert documents[1] == expected
+    passage = ET.fromstring(expected['bt_navigator']['ros__parameters'][
+        'default_nav_to_pose_bt_xml']).find('.//TunnelPassage')
+    assert float(passage.attrib['approach_speed']) == 0.45
+    assert float(passage.attrib['approach_slowdown_distance']) == 1.0
+    assert float(passage.attrib['rolling_alignment_speed']) == 0.45
+    assert float(passage.attrib['passage_speed']) == 0.8
+
+
+@pytest.mark.parametrize('localization,role', [('lio', 'lio'), ('ground_truth', 'navigation')])
+def test_dual_forwards_normal_speed_to_either_localization(launches, localization, role):
+    """The unique dual scene passes the override to the actual selected component."""
+    dual_context = _context(launches.modules['dual'], {
+        'localization': localization, 'normal_speed': '0.8'})
+    actions = launches.modules['dual']._launch_setup(dual_context)
+    forwarded = _include_arguments(
+        dual_context, _include(launches, actions, LAUNCH_FILES[role]))
+    assert forwarded['normal_speed'] == '0.8'
+    context = _context(launches.modules[role], forwarded)
+    navigation = launches.modules[role]._launch_setup(context)
+    params = _nav_yaml(context, _node(launches, navigation, 'controller_server'), 'sentry_robot1')
+    controller = params['controller_server']['ros__parameters']['FollowPath']
+    assert controller['v_linear_min'] == -0.8
+    assert controller['v_linear_max'] == 0.8
+
+
+@pytest.mark.parametrize('role', ['navigation', 'lio'])
+@pytest.mark.parametrize('normal_speed', ['nan', 'inf', '-inf', '-0.1', '0', 'invalid'])
+def test_normal_speed_must_be_finite_and_positive(launches, role, normal_speed):
+    """Invalid values fail before any navigation process or temporary tree is created."""
+    module = launches.modules[role]
+    context = _context(module, {'normal_speed': normal_speed})
+    with pytest.raises(ValueError, match='normal_speed must be finite and positive'):
+        module._launch_setup(context)
+
+
+@pytest.mark.parametrize('legacy,enabled,auto_start,expected', [
+    ('False', 'False', 'True', False),
+    ('False', 'True', 'False', True),
+    ('True', 'False', 'False', True),
+    ('True', 'True', 'True', True),
+])
+def test_fixed_route_node_enable_and_auto_start_are_independent(
+        launches, legacy, enabled, auto_start, expected):
+    """The legacy off switch still creates no task unless explicitly enabled."""
+    context = _context(launches.modules['dual'], {
+        'auto_nav_to_origin': legacy, 'enable_route_task': enabled,
+        'route_auto_start': auto_start})
+    actions = launches.modules['dual']._launch_setup(context)
+    tasks = [node for node in _nodes(launches, actions)
+             if node['executable'] == 'startup_navigation']
+    assert len(tasks) == int(expected)
+    referees = [node for node in _nodes(launches, actions)
+                if node['executable'] == 'referee_hp.py']
+    assert len(referees) == int(expected)
+    if expected:
+        params = _parameters(context, tasks[0])
+        assert tasks[0]['namespace'] == 'sentry_robot1'
+        assert params['auto_start'] is (auto_start == 'True')
+        assert params['base_frame'] == 'sentry_robot1/chassis'
+        assert params['enable_low_hp_return'] is True
+        assert list(params['route_points']) == [-4.0, 3.475, -2.5, 3.475, 0.0, 0.0]
+        assert all(type(point) is float for point in params['route_points'])
+
+
+def test_fixed_route_is_disabled_during_mapping(launches):
+    context = _context(launches.modules['dual'], {
+        'slam': 'True', 'enable_route_task': 'True', 'auto_nav_to_origin': 'True'})
+    actions = launches.modules['dual']._launch_setup(context)
+    assert not any(node['executable'] == 'startup_navigation'
+                   for node in _nodes(launches, actions))
+    assert not any(node['executable'] == 'referee_hp.py'
+                   for node in _nodes(launches, actions))
+
+
+@pytest.mark.parametrize('mode', ['lio', 'ground_truth'])
+def test_simulated_referee_only_provides_hp_to_the_route_owner(launches, mode):
+    """One HP source must not send competing goals or track the manual robot."""
+    context = _context(launches.modules['dual'], {'localization': mode})
+    actions = launches.modules['dual']._launch_setup(context)
+    referees = [node for node in _nodes(launches, actions)
+                if node['executable'] == 'referee_hp.py']
+    assert len(referees) == 1
+    assert referees[0]['package'] == 'rmu_gazebo_simulator'
+    params = _parameters(context, referees[0])
+    assert list(params['robots']) == ['sentry_robot1']
+    assert params['initial_hp'] == 100
+    assert params['threshold'] == 0
+    assert params['use_sim_time'] is True
+    task = _parameters(context, _node(launches, actions, 'startup_navigation'))
+    assert task['enable_low_hp_return'] is True
+    assert task['hp_topic'] == '/referee/sentry_robot1/hp'
+    assert type(task['return_hp_threshold']) is int
+    assert task['return_hp_threshold'] == 50
+
+
+def test_simulated_referee_can_be_disabled_without_disabling_the_route(launches):
+    """Debug/real hardware launch can leave the existing route unchanged."""
+    context = _context(launches.modules['dual'], {'enable_sim_referee': 'False'})
+    actions = launches.modules['dual']._launch_setup(context)
+    assert not any(node['executable'] == 'referee_hp.py'
+                   for node in _nodes(launches, actions))
+    task = _parameters(context, _node(launches, actions, 'startup_navigation'))
+    assert task['enable_low_hp_return'] is False
+
+
+def test_simulated_referee_respects_wall_time_configuration(launches):
+    context = _context(launches.modules['dual'], {'use_sim_time': 'False'})
+    actions = launches.modules['dual']._launch_setup(context)
+    referee = _parameters(context, _node(launches, actions, 'sim_referee_hp'))
+    assert referee['use_sim_time'] is False
+
+
+def test_fixed_route_accepts_configured_points_as_double_array(launches):
+    context = _context(launches.modules['dual'], {
+        'route_points': '[1, 2, 3, 4, 5, 6]'})
+    actions = launches.modules['dual']._launch_setup(context)
+    task = _node(launches, actions, 'startup_navigation')
+    assert list(_parameters(context, task)['route_points']) == [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]
+
+
+@pytest.mark.parametrize('route', ['[]', '[0, 0]', '[0, 0, 0, 0, 0, .nan]',
+                                  '[true, 0, 0, 0, 0, 0]', '{x: 1}'])
+def test_fixed_route_rejects_invalid_launch_points(launches, route):
+    context = _context(launches.modules['dual'], {'route_points': route})
+    with pytest.raises(ValueError, match='three finite XY pairs'):
+        launches.modules['dual']._launch_setup(context)
+
+
+@pytest.mark.parametrize('role', ['navigation', 'lio'])
+@pytest.mark.parametrize('namespace', ['', 'sentry_robot1', 'test_team/primary'])
+def test_navigation_profiles_keep_arrival_and_slowdown_independent(launches, role, namespace):
+    """Both localization modes must register the profiles requested by either BT."""
+    module = launches.modules[role]
+    context = _context(module, {'namespace': namespace})
+    actions = module._launch_setup(context)
+    document = _nav_yaml(context, _node(launches, actions, 'controller_server'), namespace)
+    server = document['controller_server']['ros__parameters']
+    assert set(server['controller_plugins']) == {'FollowPath', 'FollowPathTunnel'}
+    assert set(server['goal_checker_plugins']) == {'general_goal_checker', 'tunnel_goal_checker'}
+    assert server['general_goal_checker']['xy_goal_tolerance'] == 0.5
+    assert server['tunnel_goal_checker']['xy_goal_tolerance'] == 0.15
+    normal = deepcopy(server['FollowPath'])
+    tunnel = deepcopy(server['FollowPathTunnel'])
+    assert normal.pop('approach_velocity_scaling_dist') == 0.9
+    assert tunnel.pop('approach_velocity_scaling_dist') == 0.6
+    assert normal == tunnel  # Same algorithm and tuning outside the separate slowdown profile.
+
+
+def test_multi_pose_route_preserves_final_goal_and_uses_tunnel_preparation():
+    """Automatic three-point routes must use the same guarded tunnel phase as single goals."""
+    template = (PACKAGE / 'behavior_trees' /
+                'navigate_through_poses_w_replanning_and_recovery.xml').read_text()
+    enabled = ET.fromstring(bringup_config.behavior_tree_xml(template, 'sentry_robot1'))
+    disabled = ET.fromstring(bringup_config.behavior_tree_xml(template, 'sentry_robot1', False))
+    final_goal = enabled.find('.//TunnelFinalGoal')
+    assert final_goal.attrib == {'goals': '{goals}', 'goal': '{tunnel_goal}'}
+    passage = enabled.find('.//TunnelPassage')
+    assert passage.attrib['goals'] == '{goals}'
+    assert passage.attrib['goal'] == '{tunnel_goal}'
+    assert passage.attrib['body_frame'] == 'sentry_robot1/chassis'
+    assert passage.attrib['controller_id'] == 'FollowPathTunnel'
+    assert passage.attrib['goal_checker_id'] == 'tunnel_goal_checker'
+    assert enabled.find('.//TunnelRouteGuard') is not None
+    follow = enabled.find('.//FollowPath')
+    assert follow.attrib['controller_id'] == 'FollowPath'
+    assert follow.attrib['goal_checker_id'] == 'general_goal_checker'
+    for tag in ('TunnelFinalGoal', 'TunnelPassage', 'TunnelRouteGuard'):
+        assert disabled.find('.//' + tag) is None
+    assert enabled.find('.//RecoveryNode').attrib == disabled.find('.//RecoveryNode').attrib
+    assert ET.tostring(enabled.find('.//ReactiveFallback')) == ET.tostring(
+        disabled.find('.//ReactiveFallback'))
+
+
+def test_spawn_and_initial_robot_guess_are_independent(launches):
+    dual = launches.modules['dual']
+    context = _context(dual, {'spawn_x': '-5.1', 'spawn_y': '3.15',
+                              'spawn_yaw': '-1.4'})
+    actions = dual._launch_setup(context)
+    spawns = [node for node in _nodes(launches, actions) if node['executable'] == 'create']
+    sentry = next(node for node in spawns if 'sentry_robot1' in node['arguments'])
+    assert sentry['arguments'][-8:] == ['-x', '-5.1', '-y', '3.15', '-z', '0.3', '-Y', '-1.4']
+    forwarded = _include_arguments(context, _include(launches, actions, LAUNCH_FILES['lio']))
+    assert forwarded['initial_pose_x'] == '-4.6'
+    assert forwarded['initial_pose_y'] == '3.475'
+    assert forwarded['initial_pose_yaw'] == '0.0'
+    component = launches.modules['lio']
+    child_context = _context(component, forwarded)
+    child_actions = component._launch_setup(child_context)
+    gicp = _parameters(child_context, _node(launches, child_actions, 'small_gicp_relocalization'))
+    assert list(gicp['initial_robot_pose']) == [-4.6, 3.475, 0.0, 0.0, 0.0, 0.0]
+
+
+def test_explicit_initial_guess_reaches_gicp_without_moving_simulator(launches):
+    dual = launches.modules['dual']
+    context = _context(dual, {'initial_pose_x': '-5.2', 'initial_pose_y': '3.1',
+                              'initial_pose_z': '.02', 'initial_pose_yaw': '-1.5'})
+    actions = dual._launch_setup(context)
+    sentry = next(node for node in _nodes(launches, actions)
+                  if node['executable'] == 'create' and 'sentry_robot1' in node['arguments'])
+    assert sentry['arguments'][-8:] == ['-x', '-4.6', '-y', '3.475', '-z', '0.3',
+                                       '-Y', '0.0']
+    forwarded = _include_arguments(context, _include(launches, actions, LAUNCH_FILES['lio']))
+    child_context = _context(launches.modules['lio'], forwarded)
+    child_actions = launches.modules['lio']._launch_setup(child_context)
+    gicp = _parameters(child_context, _node(launches, child_actions, 'small_gicp_relocalization'))
+    assert list(gicp['initial_robot_pose']) == [-5.2, 3.1, .02, 0.0, 0.0, -1.5]
+
+
+@pytest.mark.parametrize('mode,role,expected', [('lio', 'lio', True),
+                                               ('ground_truth', 'navigation', False)])
+def test_only_lio_fixed_route_requires_map_registration_health(launches, mode, role, expected):
+    context = _context(launches.modules['dual'], {'localization': mode})
+    actions = launches.modules['dual']._launch_setup(context)
+    task = _parameters(context, _node(launches, actions, 'startup_navigation'))
+    assert task['require_localization_status'] is expected
+    forwarded = _include_arguments(context, _include(launches, actions, LAUNCH_FILES[role]))
+    assert forwarded['initial_pose_x'] == '-4.6'
+
+
+@pytest.mark.parametrize('key', ['spawn_x', 'spawn_y', 'spawn_z', 'spawn_yaw',
+                                  'initial_pose_x', 'initial_pose_y',
+                                  'initial_pose_z', 'initial_pose_yaw'])
+@pytest.mark.parametrize('value', ['nan', 'inf', 'bad'])
+def test_dual_rejects_invalid_pose_parameters(launches, key, value):
+    context = _context(launches.modules['dual'], {key: value})
+    with pytest.raises(ValueError, match='four finite XYZYaw'):
+        launches.modules['dual']._launch_setup(context)
+
+
+@pytest.mark.parametrize('localization,role', [('lio', 'lio'), ('ground_truth', 'navigation')])
+@pytest.mark.parametrize('overrides,deferred', [
+    ({}, True),
+    ({'auto_nav_to_origin': 'False', 'enable_route_task': 'False'}, False),
+    ({'auto_nav_to_origin': 'False', 'enable_route_task': 'True',
+      'route_auto_start': 'False'}, True),
+    ({'tunnel_passage': 'False'}, False),
+])
+def test_fixed_route_defers_spin_in_both_command_outputs_and_multi_pose_tree(
+        launches, localization, role, overrides, deferred):
+    """A route cannot spin before entry; the desired speed survives into the BT."""
+    context = _context(launches.modules['dual'], {
+        'localization': localization, 'spin_speed': '3.14', **overrides})
+    scene = launches.modules['dual']._launch_setup(context)
+    forwarded = _include_arguments(context, _include(launches, scene, LAUNCH_FILES[role]))
+    assert forwarded['spin_speed'] == '3.14'
+    assert forwarded['defer_spin_until_exit'] == str(deferred).lower()
+    child_context = _context(launches.modules[role], forwarded)
+    actions = launches.modules[role]._launch_setup(child_context)
+    expected_initial = 0.0 if deferred else 3.14
+    gateway = _parameters(child_context, _node(launches, actions, 'sim_serial_gateway'))
+    assert gateway['idle_spin_speed'] == expected_initial
+    document = _nav_yaml(child_context, _node(launches, actions, 'fake_vel_transform'),
+                         'sentry_robot1')
+    assert document['fake_vel_transform']['ros__parameters']['init_spin_speed'] == expected_initial
+    navigator = document['bt_navigator']['ros__parameters']
+    multiple = ET.parse(navigator['default_nav_through_poses_bt_xml'])
+    passage = multiple.find('.//TunnelPassage')
+    if overrides.get('tunnel_passage') == 'False':
+        assert passage is None
+    else:
+        assert float(passage.attrib['exit_spin_speed']) == (3.14 if deferred else 0.0)
+        assert passage.attrib['keep_exit_spin_at_goal'] == str(deferred).lower()
+    single = ET.parse(navigator['default_nav_to_pose_bt_xml']).find('.//TunnelPassage')
+    if single is not None:
+        assert float(single.attrib.get('exit_spin_speed', '0.0')) == 0.0
+        assert single.attrib.get('keep_exit_spin_at_goal', 'false') == 'false'
+
+
+def test_mapping_does_not_defer_spin_or_create_route_task(launches):
+    """Mapping keeps the pre-existing manual spin semantics with no route owner."""
+    context = _context(launches.modules['dual'], {'slam': 'True', 'spin_speed': '3.14'})
+    scene = launches.modules['dual']._launch_setup(context)
+    forwarded = _include_arguments(context, _include(launches, scene, LAUNCH_FILES['lio']))
+    assert forwarded['defer_spin_until_exit'] == 'false'
+    assert not any(node['executable'] == 'startup_navigation' for node in _nodes(launches, scene))
+    child = _context(launches.modules['lio'], forwarded)
+    actions = launches.modules['lio']._launch_setup(child)
+    # Mapping omits some Nav2 nodes, but preserves the physical gateway command policy.
+    gateway = _parameters(child, _node(launches, actions, 'sim_serial_gateway'))
+    assert gateway['idle_spin_speed'] == 3.14
+
+
+@pytest.mark.parametrize('role', ['navigation', 'lio'])
+@pytest.mark.parametrize('speed', ['nan', 'inf', '-inf'])
+def test_nonfinite_spin_fails_before_launch(launches, role, speed):
+    context = _context(launches.modules[role], {'spin_speed': speed})
+    with pytest.raises(ValueError, match='spin_speed must be finite'):
+        launches.modules[role]._launch_setup(context)
+
+
+def test_ground_truth_uses_one_odometry_feedback_world_lock(launches):
+    """Ground truth uses the same compensator without introducing a second command source."""
+    context = _context(launches.modules['navigation'], {'namespace': 'sentry_robot1'})
+    actions = launches.modules['navigation']._launch_setup(context)
+    locks = [node for node in _nodes(launches, actions)
+             if node['executable'] in ('gimbal_world_lock', 'sensor_gimbal_world_lock')]
+    assert len(locks) == 1
+    assert locks[0]['executable'] == 'sensor_gimbal_world_lock'
+    parameters = _parameters(context, locks[0])
+    assert parameters['feedback_source'] == 'odometry'
+    assert parameters['odom_topic'] == '/sentry_robot1/odometry_raw'
+    assert parameters['command_topic'] == '/sentry_robot1/gimbal_yaw_cmd'
+
+
+@pytest.mark.parametrize('mode,role', [('lio', 'lio'), ('ground_truth', 'navigation')])
+def test_scene_file_reaches_task_bt_and_planner(launches, tmp_path, mode, role):
+    from sentry_sim_bringup.scene_geometry import load_scene_geometry
+    data = yaml.safe_load((PACKAGE / 'config/scene_geometry.yaml').read_text())
+    for tunnel in data['tunnels']:
+        tunnel['x_min'] += 0.2
+        tunnel['x_max'] += 0.2
+        tunnel['soft_cost_roi'][0] += 0.2
+        tunnel['soft_cost_roi'][2] += 0.2
+    data['default_route']['points'][0][0] += 0.2
+    data['default_route']['yaw'] = 0.15
+    scene_file = tmp_path / 'replacement_scene.yaml'
+    scene_file.write_text(yaml.safe_dump(data))
+    scene = load_scene_geometry(scene_file)
+    context = _context(launches.modules['dual'], {
+        'scene_file': str(scene_file), 'localization': mode})
+    actions = launches.modules['dual']._launch_setup(context)
+    task = _parameters(context, _node(launches, actions, 'startup_navigation'))
+    assert task['scene_file'] == str(scene_file)
+    assert list(task['route_points']) == list(scene.route_points)
+    assert task['route_yaw'] == scene.route_yaw
+    forwarded = _include_arguments(context, _include(launches, actions, LAUNCH_FILES[role]))
+    assert forwarded['scene_file'] == str(scene_file)
+    child_context = _context(launches.modules[role], forwarded)
+    child_actions = launches.modules[role]._launch_setup(child_context)
+    params = _nav_yaml(child_context, _node(launches, child_actions, 'planner_server'), 'sentry_robot1')
+    assert params['planner_server']['ros__parameters']['GridBased']['tunnel_cost_regions'] == scene.planner_regions
+    for key in ('default_nav_to_pose_bt_xml', 'default_nav_through_poses_bt_xml'):
+        tree = ET.parse(params['bt_navigator']['ros__parameters'][key]).getroot()
+        for node in tree.iter():
+            if node.tag in {'TunnelPassage', 'TunnelRouteGuard'}:
+                assert node.attrib['tunnels'] == scene.bt_tunnels
+                assert float(node.attrib['tunnel_half_width']) == scene.tunnel_half_width
+
+
+@pytest.mark.parametrize('role', ['navigation', 'lio'])
+def test_custom_parameter_and_bt_geometry_remain_explicit_overrides(launches, tmp_path, role):
+    import shutil
+    config = PACKAGE / 'config' / ('nav2_params_lio.yaml' if role == 'lio' else 'nav2_params_ground_truth.yaml')
+    document = yaml.safe_load(config.read_text())
+    custom_roi = [1.0, 2.0, 3.0, 4.0]
+    document['planner_server']['ros__parameters']['GridBased']['tunnel_cost_regions'] = custom_roi
+    params_file = tmp_path / 'custom_params.yaml'
+    params_file.write_text(yaml.safe_dump(document))
+    trees = tmp_path / 'custom_trees'
+    shutil.copytree(PACKAGE / 'behavior_trees', trees)
+    for path in trees.glob('*.xml'):
+        path.write_text(path.read_text().replace('-3.5;-1.5;3.475;1.5;3.5;-3.475', '10;12;2'))
+    module = launches.modules[role]
+    context = _context(module, {'params_file': str(params_file), 'bt_xml_dir': str(trees)})
+    actions = module._launch_setup(context)
+    params = _nav_yaml(context, _node(launches, actions, 'planner_server'), 'sentry_robot1')
+    assert params['planner_server']['ros__parameters']['GridBased']['tunnel_cost_regions'] == custom_roi
+    tree = ET.parse(params['bt_navigator']['ros__parameters']['default_nav_to_pose_bt_xml']).getroot()
+    assert tree.find('.//TunnelPassage').attrib['tunnels'] == '10;12;2'
+    assert 'tunnel_half_width' not in tree.find('.//TunnelPassage').attrib
+
+
+@pytest.mark.parametrize('route', [''])
+def test_empty_route_uses_scene_default(launches, route):
+    context = _context(launches.modules['dual'], {'route_points': route})
+    actions = launches.modules['dual']._launch_setup(context)
+    task = _parameters(context, _node(launches, actions, 'startup_navigation'))
+    assert list(task['route_points']) == [-4.0, 3.475, -2.5, 3.475, 0.0, 0.0]

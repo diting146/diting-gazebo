@@ -16,10 +16,12 @@
            If the field ever renders upside-down, swap this pose for
            "-6.3633 4.333 0 1.5708 0 0" (the non-flipped variant). -->
       <pose>-6.3633 -4.333 0.5340 -1.5708 0 0</pose>
+      <!-- Tunnel test: level the 0.5 mm floor lips in collision geometry only.
+           The original STL remains the visual model; walls and roof are retained. -->
       <collision name="collision">
         <geometry>
           <mesh>
-            <uri>model://diting_3v3_field/meshes/3v3_field.stl</uri>
+            <uri>model://diting_3v3_field/meshes/3v3_field_collision.stl</uri>
             <scale>0.001 0.001 0.001</scale>
           </mesh>
         </geometry>

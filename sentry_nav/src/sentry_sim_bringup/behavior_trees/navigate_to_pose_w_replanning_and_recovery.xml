@@ -1,16 +1,32 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Both scenes use the same recovery policy. Controller failures command zero
-     before this tree waits; detected obstacles are never cleared to force motion.
-     Four total attempts (initial + three retries), one-second waits between them. -->
+<!-- Normal bundled component launches inject authoritative tunnels/half-width
+     from config/scene_geometry.yaml. Literal geometry below is a compatibility
+     fallback; editing it alone does not change normal dual/LIO/GT launches. -->
+<!-- Preserve the final navigation goal. A planned tunnel crossing first gets a
+     guarded outside preparation and passage; ordinary routes skip that step.
+     Recovery remains bounded wait/replan, without automatic spin or backup. -->
 <root BTCPP_format="3" main_tree_to_execute="MainTree">
   <BehaviorTree ID="MainTree">
     <RecoveryNode name="NavigateRecovery" number_of_retries="3">
-      <PipelineSequence name="NavigateWithReplanning">
-        <RateController hz="3.0">
-          <ComputePathToPose goal="{goal}" path="{path}" planner_id="GridBased"/>
-        </RateController>
-        <FollowPath path="{path}" controller_id="FollowPath"/>
-      </PipelineSequence>
+      <Sequence name="PreparePassageAndNavigate">
+        <ComputePathToPose goal="{goal}" path="{path}" planner_id="GridBased"/>
+        <TunnelPassage path="{path}" goal="{goal}" body_frame="chassis"
+                       control_frame="gimbal_yaw_fake" use_sim_time="true"
+                       tunnels="-3.5;-1.5;3.475;1.5;3.5;-3.475"
+                       entry_distance="0.5" exit_distance="0.6"
+                       approach_speed="0.45" passage_speed="0.8"
+                       approach_slowdown_distance="1.0" rolling_alignment_speed="0.45"
+                       waiting_longitudinal_tolerance="0.30" rotation_speed="0.6"
+                       controller_id="FollowPathTunnel" goal_checker_id="tunnel_goal_checker"/>
+        <PipelineSequence name="NavigateWithReplanning">
+          <RateController hz="3.0">
+            <ComputePathToPose goal="{goal}" path="{path}" planner_id="GridBased"/>
+          </RateController>
+          <TunnelRouteGuard path="{path}"
+                            tunnels="-3.5;-1.5;3.475;1.5;3.5;-3.475"/>
+          <FollowPath path="{path}" controller_id="FollowPath" goal_checker_id="general_goal_checker"/>
+        </PipelineSequence>
+      </Sequence>
       <ReactiveFallback name="RecoveryFallback">
         <GoalUpdated/>
         <Wait wait_duration="1"/>

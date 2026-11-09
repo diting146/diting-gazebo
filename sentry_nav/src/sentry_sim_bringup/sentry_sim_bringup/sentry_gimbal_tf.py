@@ -109,6 +109,12 @@ class SentryGimbalTf(Node):
             self.declare_parameter('lidar_pitch', 0.209440).value
         )
 
+        self._max_publish_rate_hz = float(
+            self.declare_parameter('max_publish_rate_hz', 100.0).value
+        )
+        if not math.isfinite(self._max_publish_rate_hz) or self._max_publish_rate_hz < 0.0:
+            raise ValueError('max_publish_rate_hz must be finite and nonnegative')
+        self._last_published_stamp_ns = None
         self._last_warn_ns = None
 
         self._static_broadcaster = StaticTransformBroadcaster(self)
@@ -175,6 +181,13 @@ class SentryGimbalTf(Node):
         stamp = msg.header.stamp
         if stamp.sec == 0 and stamp.nanosec == 0:
             stamp = self.get_clock().now().to_msg()
+        stamp_ns = stamp.sec * 1_000_000_000 + stamp.nanosec
+        if self._last_published_stamp_ns is not None and self._max_publish_rate_hz > 0.0:
+            elapsed_ns = stamp_ns - self._last_published_stamp_ns
+            # Drop intermediate source samples, without re-stamping or replaying
+            # an old joint angle. A backwards source clock starts a new interval.
+            if 0 <= elapsed_ns and elapsed_ns * self._max_publish_rate_hz < 1_000_000_000:
+                return
         self._dynamic_broadcaster.sendTransform(
             _make_transform(
                 self._gimbal_odom_frame,
@@ -184,6 +197,7 @@ class SentryGimbalTf(Node):
                 position,
             )
         )
+        self._last_published_stamp_ns = stamp_ns
 
 
 def main(args=None):

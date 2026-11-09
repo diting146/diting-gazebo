@@ -194,7 +194,9 @@ protected:
    * @param path Local path to check for collisions
    * @return True if collision detected, false otherwise
    */
-  bool isCollisionDetected(const nav_msgs::msg::Path & path);
+  bool isCollisionDetected(
+    const nav_msgs::msg::Path & path, const geometry_msgs::msg::PoseStamped & pose,
+    const geometry_msgs::msg::Twist & velocity, const geometry_msgs::msg::Twist & command);
 
 private:
   /**
@@ -273,6 +275,9 @@ private:
   // Controller parameters
   double translation_kp_, translation_ki_, translation_kd_;
   bool enable_rotation_;
+  std::string control_frame_;
+  bool use_polygon_collision_check_{false};
+  double collision_prediction_time_{0.5};
   double rotation_kp_, rotation_ki_, rotation_kd_;
   double min_max_sum_error_;
   double control_duration_;

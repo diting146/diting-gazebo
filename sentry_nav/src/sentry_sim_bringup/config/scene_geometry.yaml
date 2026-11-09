@@ -1,0 +1,18 @@
+schema_version: 1
+frame_id: map
+tunnel_half_width: 0.4
+tunnels:
+  - id: north
+    x_min: -3.5
+    x_max: -1.5
+    y: 3.475
+    # Preserve the existing ROI exactly; it is not recentered automatically.
+    soft_cost_roi: [-4.0, 3.06, -1.0, 3.86]
+  - id: south
+    x_min: 1.5
+    x_max: 3.5
+    y: -3.475
+    soft_cost_roi: [1.0, -3.86, 4.0, -3.06]
+default_route:
+  points: [[-4.0, 3.475], [-2.5, 3.475], [0.0, 0.0]]
+  yaw: 0.0

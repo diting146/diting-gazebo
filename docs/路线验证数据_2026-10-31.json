@@ -1,0 +1,61 @@
+[
+  {
+    "case": "rolling_cancel",
+    "label": "manager_cancel",
+    "status": 5,
+    "passed": true,
+    "sim_sec": 0.964,
+    "stopped": true,
+    "distance_to_origin": 5.981920516339726
+  },
+  {
+    "case": "rolling_clean_01",
+    "label": "manager_auto",
+    "status": 4,
+    "passed": true,
+    "sim_sec": 23.441,
+    "stopped": true,
+    "distance_to_origin": 0.3950574726579569
+  },
+  {
+    "case": "rolling_repeat",
+    "label": "manager_auto",
+    "status": 6,
+    "passed": false,
+    "sim_sec": 15.96,
+    "stopped": true,
+    "distance_to_origin": 4.668391683729651
+  },
+  {
+    "case": "rolling_repeat_retry",
+    "label": "manager_auto",
+    "status": 4,
+    "passed": true,
+    "sim_sec": 24.598,
+    "stopped": true,
+    "distance_to_origin": 0.40701936433935765
+  },
+  {
+    "case": "rolling_repeat_retry",
+    "label": "manager_repeat",
+    "status": 4,
+    "passed": true,
+    "sim_sec": 40.506,
+    "stopped": true,
+    "distance_to_origin": 0.3982776629712363
+  },
+  {
+    "case": "rolling_single_world_final",
+    "label": "manager_auto",
+    "status": 4,
+    "sim_sec": 25.853,
+    "stopped": true
+  },
+  {
+    "case": "rolling_single_world_final",
+    "label": "manager_repeat",
+    "status": 4,
+    "sim_sec": 41.0,
+    "stopped": true
+  }
+]

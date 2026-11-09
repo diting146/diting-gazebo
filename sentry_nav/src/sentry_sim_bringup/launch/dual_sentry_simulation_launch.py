@@ -5,11 +5,12 @@
 
 import os
 import tempfile
+import uuid
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import (
-    DeclareLaunchArgument, GroupAction, IncludeLaunchDescription, OpaqueFunction,
+    DeclareLaunchArgument, GroupAction, IncludeLaunchDescription, LogInfo, OpaqueFunction,
     SetEnvironmentVariable, TimerAction,
 )
 from launch.conditions import IfCondition
@@ -17,9 +18,10 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from launch_ros.descriptions import ParameterValue
+from sentry_sim_bringup.scene_geometry import load_scene_geometry, resolve_route
 from sentry_sim_bringup.bringup_config import (
-    DEFAULT_PLANNER, DEFAULT_POSE, DEFAULT_SPAWN_DELAY, DEFAULT_SPIN_SPEED,
-    gazebo_resource_path, sentry_bridge, sentry_model,
+    DEFAULT_INITIAL_POSE, DEFAULT_PLANNER, DEFAULT_POSE, DEFAULT_SPAWN_DELAY, DEFAULT_SPIN_SPEED,
+    finite_pose, gazebo_resource_path, sentry_bridge, sentry_model,
 )
 
 
@@ -31,11 +33,22 @@ def _launch_setup(context):
     def value(name):
         return LaunchConfiguration(name).perform(context)
 
+    scene = load_scene_geometry(value('scene_file'))
     common_arguments = {name: value(name) for name in (
-        'map', 'params_file', 'use_sim_time', 'autostart', 'use_respawn',
-        'use_rviz', 'spin_speed', 'gimbal_world_lock', 'planner_plugin',
-        'bt_xml_dir', 'localization', 'slam', 'prior_pcd_file',
+        'scene_file', 'map', 'params_file', 'use_sim_time', 'autostart', 'use_respawn',
+        'use_rviz', 'spin_speed', 'normal_speed', 'gimbal_world_lock', 'planner_plugin',
+        'bt_xml_dir', 'tunnel_passage', 'localization', 'slam', 'prior_pcd_file',
+        'initial_pose_x', 'initial_pose_y', 'initial_pose_z', 'initial_pose_yaw',
     )}
+    task_enabled = any(value(name).lower() in ('true', '1', 'yes', 'on')
+                       for name in ('auto_nav_to_origin', 'enable_route_task'))
+    mapping = value('slam').lower() in ('true', '1', 'yes', 'on')
+    sim_referee = (task_enabled and not mapping
+                   and value('enable_sim_referee').lower() in ('true', '1', 'yes', 'on'))
+    defer_spin = (task_enabled
+                  and value('tunnel_passage').lower() in ('true', '1', 'yes', 'on')
+                  and not mapping)
+    common_arguments['defer_spin_until_exit'] = str(defer_spin).lower()
     common_arguments.update({
         'namespace': 'sentry_robot1', 'sentry_name': 'sentry_robot1',
     })
@@ -84,8 +97,29 @@ def _launch_setup(context):
         bridge_path = bridge_file.name
 
     use_sim_time = LaunchConfiguration('use_sim_time')
-    x, y, z, yaw = DEFAULT_POSE
-    return [
+    spawn = finite_pose([value('spawn_' + key) for key in ('x', 'y', 'z', 'yaw')],
+                        'spawn pose')
+    finite_pose([value('initial_pose_' + key) for key in ('x', 'y', 'z', 'yaw')],
+                'initial pose')
+    x, y, z, yaw = [str(item) for item in spawn]
+    # Keep local Gazebo discovery off automatically selected virtual adapters.
+    # An explicit caller address still supports external simulation servers.
+    gazebo_ip = context.environment.get('IGN_IP') or '127.0.0.1'
+    owns_simulator = IfCondition(LaunchConfiguration('start_simulator')).evaluate(context)
+    gazebo_partition = context.environment.get('IGN_PARTITION')
+    auto_partition = owns_simulator and not gazebo_partition
+    if auto_partition:
+        gazebo_partition = 'sentry_sim_' + uuid.uuid4().hex
+    actions = [
+        SetEnvironmentVariable('IGN_IP', gazebo_ip),
+        LogInfo(msg=(
+            'Sentry simulation settings: '
+            f'localization={localization}, gazebo_ip={gazebo_ip}, '
+            f'gazebo_partition={gazebo_partition or "external/default"}, '
+            f'normal_speed={value("normal_speed")}, '
+            f'use_rviz={value("use_rviz")}, '
+            f'auto_nav_to_origin={value("auto_nav_to_origin")}, '
+            f'tunnel_passage={value("tunnel_passage")}')),
         SetEnvironmentVariable('IGN_GAZEBO_RESOURCE_PATH', gazebo_resource_path(
             pkg, get_package_share_directory('pb2025_robot_description'), rmu,
             os.environ.get('IGN_GAZEBO_RESOURCE_PATH', ''))),
@@ -148,6 +182,40 @@ def _launch_setup(context):
                          'use_sim_time': ParameterValue(use_sim_time, value_type=bool)}],
         ),
     ]
+    if auto_partition:
+        # Every child, bridge and spawn request must share this owned world.
+        # An external server keeps the caller's exact transport environment.
+        actions.insert(0, SetEnvironmentVariable('IGN_PARTITION', gazebo_partition))
+    if task_enabled and not mapping:
+        route, route_yaw = resolve_route(scene, value('route_points'), value('route_yaw'))
+        actions.append(Node(
+            package='sentry_sim_bringup', executable='startup_navigation',
+            name='startup_navigation', namespace=namespace, output='screen',
+            parameters=[{
+                'use_sim_time': ParameterValue(use_sim_time, value_type=bool),
+                'base_frame': namespace + '/chassis',
+                'require_localization_status': localization == 'lio',
+                'auto_start': value('route_auto_start').lower() in ('true', '1', 'yes', 'on'),
+                'scene_file': value('scene_file'),
+                'route_points': route, 'route_yaw': route_yaw,
+                'enable_low_hp_return': sim_referee,
+                'hp_topic': '/referee/sentry_robot1/hp',
+                'return_hp_threshold': 50,
+            }],
+        ))
+        if sim_referee:
+            # Let the task owner cancel/serialize actions and use its recorded
+            # home pose. The legacy referee must never send a second Nav2 goal.
+            actions.append(Node(
+                package='rmu_gazebo_simulator', executable='referee_hp.py',
+                name='sim_referee_hp', output='screen', parameters=[{
+                    'use_sim_time': ParameterValue(use_sim_time, value_type=bool),
+                    'robots': ['sentry_robot1'],
+                    'initial_hp': 100,
+                    'threshold': 0,
+                }],
+            ))
+    return actions
 
 
 def generate_launch_description():
@@ -160,18 +228,41 @@ def generate_launch_description():
             pkg, 'maps', 'diting_3v3_field.yaml')),
         DeclareLaunchArgument('params_file', default_value=''),
         DeclareLaunchArgument('localization', default_value='lio'),
+        *[DeclareLaunchArgument('spawn_' + key, default_value=default)
+          for key, default in zip(('x', 'y', 'z', 'yaw'), DEFAULT_POSE)],
+        *[DeclareLaunchArgument('initial_pose_' + key, default_value=default)
+          for key, default in zip(('x', 'y', 'z', 'yaw'), DEFAULT_INITIAL_POSE)],
         DeclareLaunchArgument('slam', default_value='False'),
         DeclareLaunchArgument('prior_pcd_file', default_value=os.path.join(
             pkg, 'maps', 'diting_3v3_field_mapped.pcd')),
         DeclareLaunchArgument('use_sim_time', default_value='True'),
         DeclareLaunchArgument('autostart', default_value='True'),
+        DeclareLaunchArgument('auto_nav_to_origin', default_value='True',
+                              description='Legacy enable switch for the fixed three-point route task.'),
+        DeclareLaunchArgument('enable_route_task', default_value='False',
+                              description='Enable route services even when the legacy switch is off.'),
+        DeclareLaunchArgument('route_auto_start', default_value='True',
+                              description='Run the fixed route once after navigation is ready.'),
+        DeclareLaunchArgument('enable_sim_referee', default_value='True',
+                              description='Enable simulated HP and low-HP return for the fixed-route task.'),
+        DeclareLaunchArgument('scene_file', default_value=os.path.join(
+            pkg, 'config', 'scene_geometry.yaml')),
+        DeclareLaunchArgument('route_yaw', default_value='',
+                              description='Empty uses scene default yaw; explicit finite radians override.'),
+        DeclareLaunchArgument('route_points',
+                              default_value='',
+                              description='Empty uses scene default; otherwise three map-frame XY pairs.'),
         DeclareLaunchArgument('use_respawn', default_value='False'),
         DeclareLaunchArgument('use_rviz', default_value='False'),
         DeclareLaunchArgument('gimbal_world_lock', default_value='True'),
         DeclareLaunchArgument('spawn_delay', default_value=DEFAULT_SPAWN_DELAY),
+        DeclareLaunchArgument('tunnel_passage', default_value='True',
+                              description='Prepare and align before an actually planned tunnel crossing.'),
         DeclareLaunchArgument('bt_xml_dir', default_value=os.path.join(pkg, 'behavior_trees')),
         DeclareLaunchArgument('manual_command_timeout_ms', default_value='1000'),
         DeclareLaunchArgument('spin_speed', default_value=DEFAULT_SPIN_SPEED),
+        DeclareLaunchArgument('normal_speed', default_value='1.0',
+                              description='Maximum normal-route XY speed in m/s.'),
         DeclareLaunchArgument('planner_plugin', default_value=DEFAULT_PLANNER),
         OpaqueFunction(function=_launch_setup),
     ])

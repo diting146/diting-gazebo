@@ -15,6 +15,7 @@
 #ifndef FAKE_VEL_TRANSFORM__FAKE_VEL_TRANSFORM_HPP_
 #define FAKE_VEL_TRANSFORM__FAKE_VEL_TRANSFORM_HPP_
 
+#include <chrono>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -45,6 +46,7 @@ private:
   void cmdVelCallback(const geometry_msgs::msg::Twist::SharedPtr msg);
   void cmdSpinCallback(example_interfaces::msg::Float32::SharedPtr msg);
   void publishTransform();
+  void publishWatchdogStop();
   geometry_msgs::msg::Twist transformVelocity(
     const geometry_msgs::msg::Twist::SharedPtr & twist, float yaw_diff);
 
@@ -74,8 +76,10 @@ private:
 
   std::mutex cmd_vel_mutex_;
   geometry_msgs::msg::Twist::SharedPtr latest_cmd_vel_;
-  double current_robot_base_angle_;
-  rclcpp::Time last_controller_activate_time_;
+  double current_robot_base_angle_{0.0};
+  bool has_received_cmd_vel_{false};
+  std::chrono::steady_clock::time_point last_cmd_vel_time_{};
+  std::chrono::steady_clock::time_point last_controller_activate_time_{};
 };
 
 }  // namespace fake_vel_transform

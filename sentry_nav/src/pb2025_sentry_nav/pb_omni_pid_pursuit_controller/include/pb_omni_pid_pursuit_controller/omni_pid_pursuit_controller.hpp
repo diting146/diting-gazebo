@@ -16,11 +16,14 @@
 #define PB_OMNI_PID_PURSUIT_CONTROLLER__OMNI_PID_PURSUIT_CONTROLLER_HPP_
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
 #include "nav2_core/controller.hpp"
+#include "pb_omni_pid_pursuit_controller/collision_diagnostics.hpp"
 #include "pb_omni_pid_pursuit_controller/pid.hpp"
+#include "std_msgs/msg/string.hpp"
 #include "visualization_msgs/msg/marker_array.hpp"
 
 namespace pb_omni_pid_pursuit_controller
@@ -101,11 +104,31 @@ public:
    * @param speed_limit expressed in absolute value (in m/s)
    * or in percentage from maximum robot speed.
    * @param percentage Setting speed limit in percentage if true
-   * or in absolute values in false case.
+   * or in absolute values in false case. Nav2's zero value restores the base limit.
    */
   void setSpeedLimit(const double & speed_limit, const bool & percentage) override;
 
 protected:
+  /**
+   * @brief Returns the configured/dynamic/regional linear speed bound.
+   * Called with mutex_ held by the controller command loop.
+   */
+  double effectiveLinearSpeedLimit() const;
+
+  /**
+   * @brief Applies the linear cap before the existing curvature and approach reductions.
+   * Called with mutex_ held by the controller command loop.
+   */
+  void applyVelocityConstraints(
+    const nav_msgs::msg::Path & path, const geometry_msgs::msg::PoseStamped & lookahead_pose,
+    double & linear_vel);
+
+  /**
+   * @brief Caps the XY velocity norm before collision prediction, preserving direction.
+   * Called with mutex_ held by the controller command loop.
+   */
+  void applySpeedLimit(geometry_msgs::msg::Twist & command) const;
+
   /**
    * @brief Transforms global plan into same frame as pose and clips poses
    * ineligible for lookaheadPoint Points ineligible to be selected as a
@@ -194,7 +217,9 @@ protected:
    * @param path Local path to check for collisions
    * @return True if collision detected, false otherwise
    */
-  bool isCollisionDetected(const nav_msgs::msg::Path & path);
+  bool isCollisionDetected(
+    const nav_msgs::msg::Path & path, const geometry_msgs::msg::PoseStamped & pose,
+    const geometry_msgs::msg::Twist & velocity, const geometry_msgs::msg::Twist & command);
 
 private:
   /**
@@ -258,6 +283,12 @@ private:
     double target_distance) const;
 
 private:
+  void publishCollisionDiagnostic();
+  CollisionEpisode collision_episode_;
+  std::uint64_t collision_event_id_{0};
+  std::optional<ControllerCollisionEvent> pending_collision_event_;
+  rclcpp_lifecycle::LifecyclePublisher<std_msgs::msg::String>::SharedPtr collision_pub_;
+
   rclcpp_lifecycle::LifecycleNode::WeakPtr node_;
   std::shared_ptr<tf2_ros::Buffer> tf_;
   std::string plugin_name_;
@@ -265,7 +296,7 @@ private:
   nav2_costmap_2d::Costmap2D * costmap_;
   rclcpp::Logger logger_{rclcpp::get_logger("OmniPidPursuitController")};
   rclcpp::Clock::SharedPtr clock_;
-  double last_velocity_scaling_factor_;
+  double last_velocity_scaling_factor_{0.0};
 
   std::shared_ptr<PID> move_pid_;
   std::shared_ptr<PID> heading_pid_;
@@ -273,6 +304,9 @@ private:
   // Controller parameters
   double translation_kp_, translation_ki_, translation_kd_;
   bool enable_rotation_;
+  std::string control_frame_;
+  bool use_polygon_collision_check_{false};
+  double collision_prediction_time_{0.5};
   double rotation_kp_, rotation_ki_, rotation_kd_;
   double min_max_sum_error_;
   double control_duration_;
@@ -285,8 +319,11 @@ private:
   double lookahead_time_;
   bool use_rotate_to_heading_;
   double use_rotate_to_heading_treshold_;
-  double v_linear_min_;
-  double v_linear_max_;
+  double v_linear_min_{-3.0};
+  double v_linear_max_{3.0};
+  double configured_linear_speed_max_{3.0};
+  double speed_limit_{0.0};  // Nav2 NO_SPEED_LIMIT.
+  bool speed_limit_percentage_{false};
   double v_angular_min_;
   double v_angular_max_;
   double min_approach_linear_velocity_;

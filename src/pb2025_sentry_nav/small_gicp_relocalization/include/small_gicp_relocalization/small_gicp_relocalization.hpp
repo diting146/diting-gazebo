@@ -15,6 +15,7 @@
 #ifndef SMALL_GICP_RELOCALIZATION__SMALL_GICP_RELOCALIZATION_HPP_
 #define SMALL_GICP_RELOCALIZATION__SMALL_GICP_RELOCALIZATION_HPP_
 
+#include <chrono>
 #include <memory>
 #include <string>
 #include <vector>
@@ -28,6 +29,8 @@
 #include "small_gicp/pcl/pcl_point.hpp"
 #include "small_gicp/registration/reduction_omp.hpp"
 #include "small_gicp/registration/registration.hpp"
+#include "small_gicp_relocalization/registration_quality.hpp"
+#include "std_msgs/msg/string.hpp"
 #include "tf2_ros/buffer.h"
 #include "tf2_ros/transform_broadcaster.h"
 #include "tf2_ros/transform_listener.h"
@@ -45,6 +48,9 @@ private:
   void loadGlobalMap(const std::string & file_name);
   void performRegistration();
   void publishTransform();
+  void invalidateLocalization(const std::string & reason);
+  void publishLocalizationStatus();
+  bool setInitialRobotPose(const rclcpp::Time & stamp);
   void initialPoseCallback(const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg);
 
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr pcd_sub_;
@@ -56,6 +62,25 @@ private:
   float registered_leaf_size_;
   float max_dist_sq_;
   std::vector<double> init_pose_;
+  std::vector<double> initial_robot_pose_;
+  bool initial_robot_pose_pending_ = false;
+  bool have_scan_ = false;
+  bool latest_registration_ok_ = false;
+  std::size_t consecutive_matches_ = 0;
+  int required_consecutive_matches_ = 3;
+  double registration_timeout_sec_ = 1.5;
+  RegistrationQualityLimits quality_limits_;
+  std::size_t last_inliers_ = 0;
+  std::size_t last_source_points_ = 0;
+  double last_mean_error_ = 0.0;
+  double last_translation_step_ = 0.0;
+  double last_rotation_step_ = 0.0;
+  std::string localization_reason_ = "awaiting_first_registration";
+  rclcpp::Time last_accepted_scan_time_{0, 0, RCL_ROS_TIME};
+  rclcpp::Time last_clock_time_{0, 0, RCL_ROS_TIME};
+  std::chrono::steady_clock::time_point last_accepted_wall_;
+  Eigen::Isometry3d initial_result_t_;
+  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr localization_status_pub_;
 
   std::string map_frame_;
   std::string odom_frame_;

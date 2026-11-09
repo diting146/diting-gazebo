@@ -94,3 +94,17 @@ controller_server:
       curvature_backward_dist: 0.3
       max_velocity_scaling_factor_rate: 0.9
 ```
+
+
+## 仿真控制器碰撞诊断（2026-11-04）
+
+首次碰撞拒绝会在相对话题 `controller_collision` 发布可靠、transient-local 的 JSON String。记录 `plugin`、`branch`（current/command/planned）、命中格及原始代价值、完整带padding足迹、判定扫掠多边形、候选速度和同一次地图锁内复制的完整局部地图。连续拒绝仅输出一次；真正返回安全速度后才重新允许记录，重规划不会重置。
+
+```bash
+ros2 topic echo /sentry_robot1/controller_collision std_msgs/msg/String \
+  --qos-durability transient_local --qos-reliability reliable --once
+```
+
+`decision_snapshot_stamp_ns` 是决策快照时间，`map_update_stamp_available:false` 表示没有地图源更新时间；不能当作传感器采样时间。TF变换结果保留原PoseStamped时间，但没有新增同步TF采样。数据复制发生在原costmap锁内，JSON序列化及发布在解锁后；正常与连续重复拒绝不复制整张地图。不改变254/255拒绝、完整车身扫掠或停止策略。旧七参数几何接口继续保留，供隧道插件链接。
+
+本轮受控动态障碍已验证命中格与完整快照一致、独立SAT可重放，并实际停车；这不能倒推出历史无快照失败的具体原因。

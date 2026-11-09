@@ -41,6 +41,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            'startup_navigation = sentry_sim_bringup.startup_navigation:main',
             'sim_lio_gateway = sentry_sim_bringup.sim_lio_gateway:main',
             'sensor_gimbal_world_lock = sentry_sim_bringup.sensor_gimbal_world_lock:main',
             'livox_cloud_adapter = sentry_sim_bringup.livox_cloud_adapter:main',

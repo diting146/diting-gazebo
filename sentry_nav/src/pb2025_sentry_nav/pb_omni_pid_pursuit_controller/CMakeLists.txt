@@ -13,10 +13,17 @@ ament_auto_find_build_dependencies()
 
 ament_auto_add_library(${PROJECT_NAME} SHARED
   src/omni_pid_pursuit_controller.cpp
+  src/footprint_collision.cpp
+  src/collision_diagnostics.cpp
   src/pid.cpp
 )
 
 if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
+  ament_add_gtest(test_footprint_collision test/test_footprint_collision.cpp)
+  target_link_libraries(test_footprint_collision ${PROJECT_NAME})
+  ament_add_gtest(test_collision_diagnostics test/test_collision_diagnostics.cpp)
+  target_link_libraries(test_collision_diagnostics ${PROJECT_NAME})
   set(ament_cmake_clang_format_CONFIG_FILE "${CMAKE_SOURCE_DIR}/.clang-format")
   set(ament_cmake_clang_tidy_CONFIG_FILE "${CMAKE_SOURCE_DIR}/.clang-tidy")
   find_package(ament_lint_auto REQUIRED)

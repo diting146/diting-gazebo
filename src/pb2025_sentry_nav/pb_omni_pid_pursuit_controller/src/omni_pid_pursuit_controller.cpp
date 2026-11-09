@@ -17,6 +17,7 @@
 #include "nav2_core/exceptions.hpp"
 #include "nav2_util/geometry_utils.hpp"
 #include "nav2_util/node_utils.hpp"
+#include "pb_omni_pid_pursuit_controller/footprint_collision.hpp"
 
 using nav2_util::declare_parameter_if_not_declared;
 using nav2_util::geometry_utils::euclidean_distance;
@@ -59,6 +60,12 @@ void OmniPidPursuitController::configure(
     node, plugin_name_ + ".translation_kd", rclcpp::ParameterValue(0.3));
   declare_parameter_if_not_declared(
     node, plugin_name_ + ".enable_rotation", rclcpp::ParameterValue(true));
+  declare_parameter_if_not_declared(
+    node, plugin_name_ + ".control_frame", rclcpp::ParameterValue(std::string("")));
+  declare_parameter_if_not_declared(
+    node, plugin_name_ + ".use_polygon_collision_check", rclcpp::ParameterValue(false));
+  declare_parameter_if_not_declared(
+    node, plugin_name_ + ".collision_prediction_time", rclcpp::ParameterValue(0.5));
   declare_parameter_if_not_declared(
     node, plugin_name_ + ".rotation_kp", rclcpp::ParameterValue(3.0));
   declare_parameter_if_not_declared(
@@ -117,6 +124,15 @@ void OmniPidPursuitController::configure(
   node->get_parameter(plugin_name_ + ".translation_ki", translation_ki_);
   node->get_parameter(plugin_name_ + ".translation_kd", translation_kd_);
   node->get_parameter(plugin_name_ + ".enable_rotation", enable_rotation_);
+  node->get_parameter(plugin_name_ + ".control_frame", control_frame_);
+  node->get_parameter(plugin_name_ + ".use_polygon_collision_check", use_polygon_collision_check_);
+  node->get_parameter(plugin_name_ + ".collision_prediction_time", collision_prediction_time_);
+  if (!std::isfinite(collision_prediction_time_) || collision_prediction_time_ <= 0.0) {
+    throw nav2_core::PlannerException("collision_prediction_time must be finite and positive");
+  }
+  if (control_frame_.empty()) {
+    control_frame_ = costmap_ros_->getBaseFrameID();
+  }
   node->get_parameter(plugin_name_ + ".rotation_kp", rotation_kp_);
   node->get_parameter(plugin_name_ + ".rotation_ki", rotation_ki_);
   node->get_parameter(plugin_name_ + ".rotation_kd", rotation_kd_);
@@ -255,22 +271,24 @@ geometry_msgs::msg::TwistStamped OmniPidPursuitController::computeVelocityComman
   // Transform local frame to global frame to use in collision checking
   nav_msgs::msg::Path costmap_frame_local_plan;
 
-  int sample_points = 10;
+  const int sample_points =
+    use_polygon_collision_check_ ? static_cast<int>(transformed_plan.poses.size()) : 10;
   int plan_size = transformed_plan.poses.size();
   for (int i = 0; i < sample_points; ++i) {
     int index = std::min((i * plan_size) / sample_points, plan_size - 1);
     geometry_msgs::msg::PoseStamped map_pose;
-    transformPose(costmap_ros_->getGlobalFrameID(), transformed_plan.poses[index], map_pose);
+    if (!transformPose(costmap_ros_->getGlobalFrameID(), transformed_plan.poses[index], map_pose)) {
+      throw nav2_core::PlannerException("Cannot transform path for collision checking");
+    }
     costmap_frame_local_plan.poses.push_back(map_pose);
   }
 
   geometry_msgs::msg::TwistStamped cmd_vel;
   cmd_vel.header = pose.header;
-  if (!isCollisionDetected(costmap_frame_local_plan)) {
-    cmd_vel.twist.linear.x = lin_vel * cos(theta_dist);
-    cmd_vel.twist.linear.y = lin_vel * sin(theta_dist);
-    cmd_vel.twist.angular.z = angular_vel;
-  } else {
+  cmd_vel.twist.linear.x = lin_vel * cos(theta_dist);
+  cmd_vel.twist.linear.y = lin_vel * sin(theta_dist);
+  cmd_vel.twist.angular.z = angular_vel;
+  if (isCollisionDetected(costmap_frame_local_plan, pose, velocity, cmd_vel.twist)) {
     throw nav2_core::PlannerException("Collision detected in the trajectory. Stopping the robot!");
   }
 
@@ -324,7 +342,9 @@ nav_msgs::msg::Path OmniPidPursuitController::transformGlobalPlan(
     stamped_pose.header.frame_id = global_plan_.header.frame_id;
     stamped_pose.header.stamp = robot_pose.header.stamp;
     stamped_pose.pose = global_plan_pose.pose;
-    transformPose(costmap_ros_->getBaseFrameID(), stamped_pose, transformed_pose);
+    if (!transformPose(control_frame_, stamped_pose, transformed_pose)) {
+      throw nav2_core::PlannerException("Cannot transform path into control frame");
+    }
     transformed_pose.pose.position.z = 0.0;
     return transformed_pose;
   };
@@ -334,7 +354,7 @@ nav_msgs::msg::Path OmniPidPursuitController::transformGlobalPlan(
   std::transform(
     transformation_begin, transformation_end, std::back_inserter(transformed_plan.poses),
     transform_global_pose_to_local);
-  transformed_plan.header.frame_id = costmap_ros_->getBaseFrameID();
+  transformed_plan.header.frame_id = control_frame_;
   transformed_plan.header.stamp = robot_pose.header.stamp;
 
   // Remove the portion of the global plan that we've already passed so we don't
@@ -428,6 +448,16 @@ double OmniPidPursuitController::getCostmapMaxExtent() const
 {
   const double max_costmap_dim_meters =
     std::max(costmap_->getSizeInMetersX(), costmap_->getSizeInMetersY());
+  if (use_polygon_collision_check_) {
+    double radius = 0.0;
+    for (const auto & p : costmap_ros_->getRobotFootprint()) {
+      radius = std::max(radius, std::hypot(p.x, p.y));
+    }
+    // Keep the entire body, not only its center, inside the rolling window.
+    return std::max(
+      0.0, std::min(costmap_->getSizeInMetersX(), costmap_->getSizeInMetersY()) / 2.0 - radius -
+             costmap_->getResolution());
+  }
   return max_costmap_dim_meters / 2.0;
 }
 bool OmniPidPursuitController::transformPose(
@@ -448,9 +478,74 @@ bool OmniPidPursuitController::transformPose(
   return false;
 }
 
-bool OmniPidPursuitController::isCollisionDetected(const nav_msgs::msg::Path & path)
+bool OmniPidPursuitController::isCollisionDetected(
+  const nav_msgs::msg::Path & path, const geometry_msgs::msg::PoseStamped & pose,
+  const geometry_msgs::msg::Twist & velocity, const geometry_msgs::msg::Twist & command)
 {
   auto costmap = costmap_ros_->getCostmap();
+  if (use_polygon_collision_check_) {
+    geometry_msgs::msg::PoseStamped body_pose;
+    if (!transformPose(costmap_ros_->getGlobalFrameID(), pose, body_pose)) {
+      return true;
+    }
+    auto footprint = costmap_ros_->getRobotFootprint();
+    const auto yaw = tf2::getYaw(body_pose.pose.orientation);
+    // The path tangent is not body yaw on an omnidirectional sentry. Check
+    // translation at the actual yaw. During observed rotation, reserve the
+    // full rotation envelope; fixed-yaw narrow passage tests use spin_speed=0.
+    if (std::abs(velocity.angular.z) > 0.1 || std::abs(command.angular.z) > 0.1) {
+      double radius = 0.0;
+      for (const auto & p : footprint) {
+        radius = std::max(radius, std::hypot(p.x, p.y));
+      }
+      if (footprint.size() < 3) {
+        return true;
+      }
+      footprint.clear();
+      // Circumscribed, not inscribed, polygon around the rotation circle.
+      constexpr int sides = 32;
+      radius /= std::cos(M_PI / sides);
+      for (int i = 0; i < sides; ++i) {
+        geometry_msgs::msg::Point p;
+        p.x = radius * std::cos(2.0 * M_PI * i / sides);
+        p.y = radius * std::sin(2.0 * M_PI * i / sides);
+        footprint.push_back(p);
+      }
+    }
+    double x = body_pose.pose.position.x, y = body_pose.pose.position.y;
+    if (sweptFootprintCollision(*costmap, footprint, x, y, x, y, yaw)) {
+      RCLCPP_WARN_THROTTLE(
+        logger_, *clock_, 2000, "Current body footprint collides at %.3f, %.3f", x, y);
+      return true;
+    }
+    // Pure pursuit may cut across a path corner. Also check the commanded
+    // straight motion in the control frame, not just the planned polyline.
+    geometry_msgs::msg::PoseStamped future, projected;
+    future.header.frame_id = control_frame_;
+    future.header.stamp = pose.header.stamp;
+    future.pose.orientation.w = 1.0;
+    future.pose.position.x = command.linear.x * collision_prediction_time_;
+    future.pose.position.y = command.linear.y * collision_prediction_time_;
+    if (
+      !transformPose(costmap_ros_->getGlobalFrameID(), future, projected) ||
+      sweptFootprintCollision(
+        *costmap, footprint, x, y, projected.pose.position.x, projected.pose.position.y, yaw)) {
+      RCLCPP_WARN_THROTTLE(logger_, *clock_, 2000, "Commanded body sweep collides");
+      return true;
+    }
+    for (const auto & ps : path.poses) {
+      if (sweptFootprintCollision(
+            *costmap, footprint, x, y, ps.pose.position.x, ps.pose.position.y, yaw)) {
+        RCLCPP_WARN_THROTTLE(
+          logger_, *clock_, 2000, "Planned body sweep collides at segment %.3f, %.3f -> %.3f, %.3f",
+          x, y, ps.pose.position.x, ps.pose.position.y);
+        return true;
+      }
+      x = ps.pose.position.x;
+      y = ps.pose.position.y;
+    }
+    return false;
+  }
   for (const auto & pose_stamped : path.poses) {
     const auto & pose = pose_stamped.pose;
     unsigned int mx, my;

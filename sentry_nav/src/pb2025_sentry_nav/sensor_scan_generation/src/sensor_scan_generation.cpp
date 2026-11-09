@@ -52,52 +52,66 @@ SensorScanGenerationNode::SensorScanGenerationNode(const rclcpp::NodeOptions & o
   odometry_sub_.subscribe(this, "lidar_odometry", qos_profile);
   laser_cloud_sub_.subscribe(this, "registered_scan", qos_profile);
 
+  // Publish pose before the cloud synchronizer can wait for a missing scan.
+  // Reuse the same DDS subscription and preserve the odometry source stamp.
+  odometry_sub_.registerCallback(
+    std::bind(&SensorScanGenerationNode::odometryHandler, this, std::placeholders::_1));
+
   sync_ = std::make_unique<message_filters::Synchronizer<SyncPolicy>>(
     SyncPolicy(100), odometry_sub_, laser_cloud_sub_);
-  sync_->registerCallback(
-    std::bind(
-      &SensorScanGenerationNode::laserCloudAndOdometryHandler, this, std::placeholders::_1,
-      std::placeholders::_2));
+  sync_->registerCallback(std::bind(
+    &SensorScanGenerationNode::laserCloudAndOdometryHandler, this, std::placeholders::_1,
+    std::placeholders::_2));
+}
+
+void SensorScanGenerationNode::odometryHandler(
+  const nav_msgs::msg::Odometry::ConstSharedPtr & odometry_msg)
+{
+  tf2::Transform tf_lidar_to_chassis;
+  tf2::Transform tf_lidar_to_robot_base;
+  if (
+    !getTransform(lidar_frame_, base_frame_, odometry_msg->header.stamp, tf_lidar_to_chassis) ||
+    !getTransform(
+      lidar_frame_, robot_base_frame_, odometry_msg->header.stamp, tf_lidar_to_robot_base)) {
+    return;
+  }
+
+  tf2::Transform tf_odom_to_lidar;
+  tf2::fromMsg(odometry_msg->pose.pose, tf_odom_to_lidar);
+  publishTransform(
+    tf_odom_to_lidar * tf_lidar_to_chassis, odometry_msg->header.frame_id, base_frame_,
+    odometry_msg->header.stamp);
+  publishOdometry(
+    tf_odom_to_lidar * tf_lidar_to_robot_base, odometry_msg->header.frame_id, robot_base_frame_,
+    odometry_msg->header.stamp);
 }
 
 void SensorScanGenerationNode::laserCloudAndOdometryHandler(
   const nav_msgs::msg::Odometry::ConstSharedPtr & odometry_msg,
   const sensor_msgs::msg::PointCloud2::ConstSharedPtr & pcd_msg)
 {
-  tf2::Transform tf_lidar_to_chassis;
-  tf2::Transform tf_odom_to_chassis;
-  tf2::Transform tf_odom_to_robot_base;
+  // Keep the matched pose for this cloud. A late cloud must not republish pose/TF.
   tf2::Transform tf_odom_to_lidar;
-
   tf2::fromMsg(odometry_msg->pose.pose, tf_odom_to_lidar);
-  tf_lidar_to_robot_base_ = getTransform(lidar_frame_, robot_base_frame_, pcd_msg->header.stamp);
-  tf_lidar_to_chassis = getTransform(lidar_frame_, base_frame_, pcd_msg->header.stamp);
-
-  tf_odom_to_chassis = tf_odom_to_lidar * tf_lidar_to_chassis;
-  tf_odom_to_robot_base = tf_odom_to_lidar * tf_lidar_to_robot_base_;
-
-  publishTransform(
-    tf_odom_to_chassis, odometry_msg->header.frame_id, base_frame_, pcd_msg->header.stamp);
-  publishOdometry(
-    tf_odom_to_robot_base, odometry_msg->header.frame_id, robot_base_frame_, pcd_msg->header.stamp);
-
   sensor_msgs::msg::PointCloud2 out;
   pcl_ros::transformPointCloud(lidar_frame_, tf_odom_to_lidar.inverse(), *pcd_msg, out);
   pub_laser_cloud_->publish(out);
 }
 
-tf2::Transform SensorScanGenerationNode::getTransform(
-  const std::string & target_frame, const std::string & source_frame, const rclcpp::Time & time)
+bool SensorScanGenerationNode::getTransform(
+  const std::string & target_frame, const std::string & source_frame, const rclcpp::Time & time,
+  tf2::Transform & transform)
 {
   try {
-    auto transform_stamped = tf_buffer_->lookupTransform(
-      target_frame, source_frame, time, rclcpp::Duration::from_seconds(0.5));
-    tf2::Transform transform;
+    // Never hold fresh odometry behind a blocking lookup or invent an identity pose.
+    const auto transform_stamped = tf_buffer_->lookupTransform(target_frame, source_frame, time);
     tf2::fromMsg(transform_stamped.transform, transform);
-    return transform;
-  } catch (tf2::TransformException & ex) {
-    RCLCPP_WARN(this->get_logger(), "TF lookup failed: %s. Returning identity.", ex.what());
-    return tf2::Transform::getIdentity();
+    return true;
+  } catch (const tf2::TransformException & ex) {
+    RCLCPP_WARN_THROTTLE(
+      this->get_logger(), *this->get_clock(), 5000,
+      "TF lookup failed; skipping odometry sample: %s", ex.what());
+    return false;
   }
 }
 

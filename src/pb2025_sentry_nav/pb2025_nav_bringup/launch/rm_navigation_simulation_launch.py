@@ -20,7 +20,7 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration, TextSubstitution
+from launch.substitutions import LaunchConfiguration, PythonExpression, TextSubstitution
 from launch_ros.actions import Node
 from launch_ros.descriptions import ParameterFile
 from nav2_common.launch import RewrittenYaml
@@ -44,16 +44,20 @@ def generate_launch_description():
     use_respawn = LaunchConfiguration("use_respawn")
     rviz_config_file = LaunchConfiguration("rviz_config_file")
     use_rviz = LaunchConfiguration("use_rviz")
+    planner = LaunchConfiguration("planner")
 
-    configured_params = ParameterFile(
-        RewrittenYaml(
-            source_file=params_file,
-            root_key=namespace,
-            param_rewrites={},
-            convert_types=True,
-        ),
-        allow_substs=True,
+    planner_plugin = PythonExpression([
+        "'tdt_yastar_planner/YastarPlanner' if '", planner,
+        "' == 'tdt_yastar' else 'nav2_theta_star_planner/ThetaStarPlanner'"
+    ])
+
+    planner_params = RewrittenYaml(
+        source_file=params_file,
+        root_key="",
+        param_rewrites={"planner_server.ros__parameters.GridBased.plugin": planner_plugin},
+        convert_types=True,
     )
+    configured_params = ParameterFile(planner_params, allow_substs=True)
 
     # Declare the launch arguments
     declare_namespace_cmd = DeclareLaunchArgument(
@@ -136,6 +140,12 @@ def generate_launch_description():
         "use_rviz", default_value="True", description="Whether to start RVIZ"
     )
 
+    declare_planner_cmd = DeclareLaunchArgument(
+        "planner",
+        default_value="theta_star",
+        description="Global planner: theta_star (default) or tdt_yastar",
+    )
+
     start_velodyne_convert_tool = Node(
         package="ign_sim_pointcloud_tool",
         executable="ign_sim_pointcloud_tool_node",
@@ -163,7 +173,7 @@ def generate_launch_description():
             "map": map_yaml_file,
             "prior_pcd_file": prior_pcd_file,
             "use_sim_time": use_sim_time,
-            "params_file": params_file,
+            "params_file": planner_params,
             "autostart": autostart,
             "use_composition": use_composition,
             "use_respawn": use_respawn,
@@ -193,6 +203,7 @@ def generate_launch_description():
     ld.add_action(declare_use_composition_cmd)
     ld.add_action(declare_rviz_config_file_cmd)
     ld.add_action(declare_use_rviz_cmd)
+    ld.add_action(declare_planner_cmd)
     ld.add_action(declare_use_respawn_cmd)
 
     # Add the actions to launch all of the navigation nodes

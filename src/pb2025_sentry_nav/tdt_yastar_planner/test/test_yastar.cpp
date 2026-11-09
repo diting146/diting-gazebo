@@ -1,7 +1,13 @@
 #include <gtest/gtest.h>
 #include <nav2_costmap_2d/cost_values.hpp>
 #include <tdt_yastar_planner/yastar_planner.hpp>
+#include <pb_omni_pid_pursuit_controller/footprint_collision.hpp>
 
+#include <algorithm>
+#include <atomic>
+#include <chrono>
+#include <future>
+#include <thread>
 #include <cmath>
 #include <limits>
 #include <rcl/time.h>
@@ -98,6 +104,43 @@ public:
     layered_costmap_ = std::make_unique<nav2_costmap_2d::LayeredCostmap>("map", false, false);
     getCostmap()->resizeMap(4, 3, 1.0, 0.0, 0.0);
     std::fill_n(getCostmap()->getCharMap(), 12, nav2_costmap_2d::FREE_SPACE);
+    rectangle(0.1, 0.1);
+  }
+  void rectangle(double hx, double hy)
+  {
+    padded_footprint_.clear();
+    for (const auto & xy : std::vector<std::pair<double, double>>{
+        {-hx, -hy}, {hx, -hy}, {hx, hy}, {-hx, hy}})
+    {
+      geometry_msgs::msg::Point p;
+      p.x = xy.first; p.y = xy.second;
+      padded_footprint_.push_back(p);
+    }
+  }
+  void tunnelAndDetour()
+  {
+    auto * map = getCostmap();
+    map->resizeMap(120, 100, 0.05, 0.0, 0.0);
+    std::fill_n(map->getCharMap(), 120 * 100, nav2_costmap_2d::FREE_SPACE);
+    for (unsigned int y = 16; y < 84; ++y) {
+      for (unsigned int x = 40; x < 80; ++x) {
+        map->setCost(x, y, y >= 43 && y < 57 ? 188 : 254);
+      }
+    }
+    rectangle(0.298, 0.277);
+  }
+
+  void corridor()
+  {
+    auto * map = getCostmap();
+    map->resizeMap(80, 40, 0.05, 0.0, 0.0);
+    // Exactly 65 cm between occupied cell edges, as in the tunnel map.
+    for (unsigned int y = 0; y < 40; ++y) {
+      for (unsigned int x = 0; x < 80; ++x) {
+        map->setCost(x, y, y < 9 || y >= 22 ? 254 : 0);
+      }
+    }
+    rectangle(0.298, 0.277);
   }
 };
 
@@ -164,11 +207,11 @@ TEST_F(AdapterTest, FiniteDefaultsHeadersAndHeadings)
   }
 }
 
-TEST_F(AdapterTest, UnknownAndInflatedObstaclesAreBlockedByDefault)
+TEST_F(AdapterTest, UnknownAndLethalObstaclesAreBlockedByDefault)
 {
   configure();
   for (auto cost : {nav2_costmap_2d::NO_INFORMATION,
-      nav2_costmap_2d::INSCRIBED_INFLATED_OBSTACLE, nav2_costmap_2d::LETHAL_OBSTACLE})
+      nav2_costmap_2d::LETHAL_OBSTACLE})
   {
     costmap->getCostmap()->setCost(3, 2, cost);
     EXPECT_THROW(planner.createPlan(pose(0.5, 0.5), pose(3.5, 2.5)), std::runtime_error);
@@ -177,10 +220,242 @@ TEST_F(AdapterTest, UnknownAndInflatedObstaclesAreBlockedByDefault)
   EXPECT_THROW(planner.createPlan(pose(0.5, 0.5), pose(4.0, 0.5)), std::invalid_argument);
 }
 
-TEST_F(AdapterTest, UnknownCanBeExplicitlyAllowed)
+TEST_F(AdapterTest, UnknownTraversalCannotBypassControllerPolicy)
 {
-  configure(true);
-  costmap->getCostmap()->setCost(3, 2, nav2_costmap_2d::NO_INFORMATION);
+  EXPECT_THROW(configure(true), std::invalid_argument);
+}
+
+TEST_F(AdapterTest, InflationAloneIsNotASecondBodyCollision)
+{
+  configure();
+  costmap->getCostmap()->setCost(3, 2, nav2_costmap_2d::INSCRIBED_INFLATED_OBSTACLE);
   EXPECT_FALSE(planner.createPlan(pose(0.5, 0.5), pose(3.5, 2.5)).poses.empty());
+}
+
+TEST_F(AdapterTest, UnknownUnderTheBodyIsBlockedEvenWithAFreeCenter)
+{
+  costmap->rectangle(0.6, 0.1);
+  costmap->getCostmap()->setCost(1, 1, nav2_costmap_2d::NO_INFORMATION);
+  configure();
+  EXPECT_THROW(planner.createPlan(pose(0.9, 1.5), pose(2.5, 1.5)), std::runtime_error);
+}
+
+TEST_F(AdapterTest, CorridorPreservesValidExactGoalWithoutItsCollidingCellCenter)
+{
+  costmap->corridor();
+  configure();
+  auto start = pose(1.0, 0.775);
+  start.pose.orientation.z = std::sin(M_PI / 4.0);
+  start.pose.orientation.w = std::cos(M_PI / 4.0);
+  // This exact goal fits, but its containing cell center y=0.725 does not.
+  const auto goal = pose(3.0, 0.75);
+  ASSERT_TRUE(pb_omni_pid_pursuit_controller::sweptFootprintCollision(
+    *costmap->getCostmap(), costmap->getRobotFootprint(), 3.025, 0.725, 3.025, 0.725,
+    M_PI / 2.0));
+  const auto result = planner.createPlan(start, goal);
+  ASSERT_GE(result.poses.size(), 2U);
+  EXPECT_DOUBLE_EQ(result.poses.back().pose.position.y, 0.75);
+  for (size_t i = 1; i < result.poses.size(); ++i) {
+    const auto & a = result.poses[i - 1].pose.position;
+    const auto & b = result.poses[i].pose.position;
+    EXPECT_FALSE(pb_omni_pid_pursuit_controller::sweptFootprintCollision(
+      *costmap->getCostmap(), costmap->getRobotFootprint(), a.x, a.y, b.x, b.y,
+      M_PI / 2.0));
+  }
+}
+
+TEST_F(AdapterTest, BodyOrientationCannotBeReplacedByPathTangent)
+{
+  costmap->corridor();
+  costmap->rectangle(0.4, 0.1);
+  configure();
+  auto start = pose(1.0, 0.775);
+  const auto goal = pose(3.0, 0.775);
+  EXPECT_FALSE(planner.createPlan(start, goal).poses.empty());
+  start.pose.orientation.z = std::sin(M_PI / 4.0);
+  start.pose.orientation.w = std::cos(M_PI / 4.0);
+  EXPECT_THROW(planner.createPlan(start, goal), std::runtime_error);
+}
+
+TEST_F(AdapterTest, ChecksSweptEdgesNotOnlyCollisionFreeNodes)
+{
+  auto * map = costmap->getCostmap();
+  map->resizeMap(8, 8, 0.05, 0.0, 0.0);
+  std::fill_n(map->getCharMap(), 64, nav2_costmap_2d::FREE_SPACE);
+  map->setCost(3, 3, nav2_costmap_2d::LETHAL_OBSTACLE);
+  costmap->rectangle(0.055, 0.01);
+  configure();
+  const auto start = pose(0.225, 0.225), goal = pose(0.275, 0.175);
+  ASSERT_FALSE(pb_omni_pid_pursuit_controller::sweptFootprintCollision(
+    *map, costmap->getRobotFootprint(), 0.225, 0.225, 0.225, 0.225, 0.0));
+  ASSERT_FALSE(pb_omni_pid_pursuit_controller::sweptFootprintCollision(
+    *map, costmap->getRobotFootprint(), 0.275, 0.175, 0.275, 0.175, 0.0));
+  ASSERT_TRUE(pb_omni_pid_pursuit_controller::sweptFootprintCollision(
+    *map, costmap->getRobotFootprint(), 0.225, 0.225, 0.275, 0.175, 0.0));
+  const auto result = planner.createPlan(start, goal);
+  ASSERT_GE(result.poses.size(), 3U);
+  for (size_t i = 1; i < result.poses.size(); ++i) {
+    const auto & a = result.poses[i - 1].pose.position;
+    const auto & b = result.poses[i].pose.position;
+    EXPECT_FALSE(pb_omni_pid_pursuit_controller::sweptFootprintCollision(
+      *map, costmap->getRobotFootprint(), a.x, a.y, b.x, b.y, 0.0));
+  }
+}
+
+TEST_F(AdapterTest, SameCellUsesTheExactBodyMotion)
+{
+  configure();
+  const auto result = planner.createPlan(pose(0.2, 0.2), pose(0.8, 0.8));
+  EXPECT_DOUBLE_EQ(result.poses.front().pose.position.x, 0.2);
+  EXPECT_DOUBLE_EQ(result.poses.back().pose.position.x, 0.8);
+}
+
+TEST_F(AdapterTest, TunnelDiscountChangesRouteAndCanBeDisabled)
+{
+  costmap->tunnelAndDetour();
+  const auto original = std::vector<unsigned char>(costmap->getCostmap()->getCharMap(),
+    costmap->getCostmap()->getCharMap() + 120 * 100);
+  const auto start = pose(1.0, 2.525), goal = pose(5.0, 2.525);
+  const auto uses_tunnel = [](const nav_msgs::msg::Path & path) {
+    return std::any_of(path.poses.begin(), path.poses.end(), [](const auto & p) {
+      return p.pose.position.x > 2.9 && p.pose.position.x < 3.1 &&
+             p.pose.position.y > 2.15 && p.pose.position.y < 2.85;
+    });
+  };
+  node->declare_parameter("YAstar.tunnel_cost_regions", std::vector<double>{1.5, 2.15, 4.5, 2.85});
+  node->declare_parameter("YAstar.tunnel_cost_enabled", false);
+  node->declare_parameter("YAstar.tunnel_cost_scale", 0.05);
+  configure();
+  const auto baseline = planner.createPlan(start, goal);
+  EXPECT_FALSE(uses_tunnel(baseline));
+  planner.deactivate();
+  node->set_parameter(rclcpp::Parameter("YAstar.tunnel_cost_enabled", true));
+  planner.configure(node, "YAstar", nullptr, costmap);
+  planner.activate();
+  const auto discounted = planner.createPlan(start, goal);
+  EXPECT_TRUE(uses_tunnel(discounted));
+  for (size_t i = 1; i < discounted.poses.size(); ++i) {
+    const auto & a = discounted.poses[i - 1].pose.position;
+    const auto & b = discounted.poses[i].pose.position;
+    EXPECT_FALSE(pb_omni_pid_pursuit_controller::sweptFootprintCollision(
+      *costmap->getCostmap(), costmap->getRobotFootprint(), a.x, a.y, b.x, b.y, 0.0));
+  }
+  EXPECT_EQ(original, std::vector<unsigned char>(costmap->getCostmap()->getCharMap(),
+    costmap->getCostmap()->getCharMap() + 120 * 100));
+  // Unit scale restores the original route despite the enabled switch.
+  planner.deactivate();
+  node->set_parameter(rclcpp::Parameter("YAstar.tunnel_cost_scale", 1.0));
+  planner.configure(node, "YAstar", nullptr, costmap);
+  planner.activate();
+  const auto restored = planner.createPlan(start, goal);
+  ASSERT_EQ(restored.poses.size(), baseline.poses.size());
+  for (size_t i = 0; i < restored.poses.size(); ++i) {
+    EXPECT_EQ(restored.poses[i].pose, baseline.poses[i].pose);
+  }
+  // An unrelated region cannot change this route.
+  planner.deactivate();
+  node->set_parameter(rclcpp::Parameter("YAstar.tunnel_cost_scale", 0.1));
+  node->set_parameter(rclcpp::Parameter("YAstar.tunnel_cost_regions",
+    std::vector<double>{10.0, 10.0, 11.0, 11.0}));
+  planner.configure(node, "YAstar", nullptr, costmap);
+  planner.activate();
+  const auto outside = planner.createPlan(start, goal);
+  ASSERT_EQ(outside.poses.size(), baseline.poses.size());
+  for (size_t i = 0; i < outside.poses.size(); ++i) {
+    EXPECT_EQ(outside.poses[i].pose, baseline.poses[i].pose);
+  }
+}
+
+TEST_F(AdapterTest, TunnelDiscountStillBlocksLethalUnknownAndBodyCollisions)
+{
+  costmap->tunnelAndDetour();
+  node->declare_parameter("YAstar.tunnel_cost_enabled", true);
+  node->declare_parameter("YAstar.tunnel_cost_regions", std::vector<double>{1.5, 2.15, 4.5, 2.85});
+  configure();
+  auto * map = costmap->getCostmap();
+  for (const auto obstacle : {nav2_costmap_2d::LETHAL_OBSTACLE, nav2_costmap_2d::NO_INFORMATION}) {
+    // A blocking strip closes the tunnel. The long detour must still be used.
+    for (unsigned int y = 43; y < 57; ++y) map->setCost(60, y, obstacle);
+    const auto result = planner.createPlan(pose(1.0, 2.525), pose(5.0, 2.525));
+    EXPECT_TRUE(std::none_of(result.poses.begin(), result.poses.end(), [](const auto & p) {
+      return p.pose.position.x > 2.9 && p.pose.position.x < 3.1 &&
+             p.pose.position.y > 2.15 && p.pose.position.y < 2.85;
+    }));
+    EXPECT_THROW(planner.createPlan(pose(1.0, 2.525), pose(3.025, 2.525)), std::runtime_error);
+  }
+  // Even an unoccupied goal center fails if its body overlaps a side wall.
+  EXPECT_THROW(planner.createPlan(pose(1.0, 2.525), pose(2.5, 2.2)), std::runtime_error);
+}
+
+TEST_F(AdapterTest, RejectsInvalidTunnelCompensationParameters)
+{
+  node->declare_parameter("YAstar.tunnel_cost_enabled", true);
+  node->declare_parameter("YAstar.tunnel_cost_scale", 0.1);
+  node->declare_parameter("YAstar.tunnel_cost_regions", std::vector<double>{});
+  EXPECT_THROW(configure(), std::invalid_argument);
+  for (const auto & regions : std::vector<std::vector<double>>{
+      {0.0, 1.0, 2.0}, {2.0, 0.0, 1.0, 2.0},
+      {0.0, 0.0, std::numeric_limits<double>::quiet_NaN(), 2.0}}) {
+    node->set_parameter(rclcpp::Parameter("YAstar.tunnel_cost_regions", regions));
+    EXPECT_THROW(planner.configure(node, "YAstar", nullptr, costmap), std::invalid_argument);
+  }
+  node->set_parameter(rclcpp::Parameter("YAstar.tunnel_cost_regions",
+    std::vector<double>{0.0, 0.0, 2.0, 2.0}));
+  for (double scale : {0.0, -1.0, 1.1, std::numeric_limits<double>::infinity()}) {
+    node->set_parameter(rclcpp::Parameter("YAstar.tunnel_cost_scale", scale));
+    EXPECT_THROW(planner.configure(node, "YAstar", nullptr, costmap), std::invalid_argument);
+  }
+}
+
+TEST_F(AdapterTest, MissingFootprintFailsClosed)
+{
+  costmap->rectangle(0.0, 0.0);
+  // An empty footprint must not silently restore center-only planning.
+  costmap->setRobotFootprint({});
+  configure();
+  EXPECT_THROW(planner.createPlan(pose(0.5, 0.5), pose(2.5, 0.5)), std::runtime_error);
+}
+
+TEST_F(AdapterTest, GoalOwnedCancellationReachesTheAdapterAndSearch)
+{
+  configure();
+  EXPECT_THROW(planner.createPlan(pose(0.5, 0.5), pose(3.5, 2.5), [] {return true;}),
+    tdt_yastar_planner::PlannerCancelled);
+  int checks = 0;
+  EXPECT_THROW(planner.createPlan(pose(0.5, 0.5), pose(3.5, 2.5), [&] {return ++checks >= 6;}),
+    tdt_yastar_planner::PlannerCancelled);
+  EXPECT_GE(checks, 6);
+  EXPECT_FALSE(planner.createPlan(pose(0.5, 0.5), pose(3.5, 2.5), [] {return false;}).poses.empty());
+}
+
+TEST_F(AdapterTest, CancelsWhileAnotherThreadHoldsCostmapLock)
+{
+  configure();
+  std::promise<void> acquired;
+  std::promise<void> release;
+  auto released = release.get_future();
+  std::thread holder([&] {
+    std::unique_lock<nav2_costmap_2d::Costmap2D::mutex_t> map_lock(*costmap->getCostmap()->getMutex());
+    acquired.set_value();
+    released.wait();
+  });
+  acquired.get_future().wait();
+  std::atomic<bool> cancel{false};
+  auto worker = std::async(std::launch::async, [&] {
+    try {
+      planner.createPlan(pose(0.5, 0.5), pose(3.5, 2.5), [&] {return cancel.load();});
+      return false;
+    } catch (const tdt_yastar_planner::PlannerCancelled &) {
+      return true;
+    }
+  });
+  EXPECT_EQ(worker.wait_for(std::chrono::milliseconds(30)), std::future_status::timeout);
+  cancel.store(true);
+  const auto result = worker.wait_for(std::chrono::seconds(1));
+  // Release before assertions so a regression cannot hang test cleanup.
+  release.set_value();
+  holder.join();
+  EXPECT_EQ(result, std::future_status::ready);
+  EXPECT_TRUE(worker.get());
 }
 }  // namespace

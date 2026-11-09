@@ -25,3 +25,14 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+
+The closed polynomial solver in `src/tdt_trajectory_optimizer.cpp` is extracted
+from TDT Nav Kit `src/MinimumSnapOsqp/minimumSnap.cpp` (original author comment:
+SnifferCaptain), under the same MIT notice above. It retains the closed equality
+solve, normalized-time matrices and time-allocation heuristic; fixed order=6 and
+derivative order=3 implement minimum jerk. OSQP and SFC are not included.
+The project adds bounded control-point selection, geometry sampling, complete
+body-sweep validation and unchanged-path fallback. This is geometric Path
+optimization; the current controller does not track the solver's timing.
+Source SHA256: 368e220c8cfc4928decd8668c3d09c7bebaf8492b59be134a8337b5f5a56d1c0.

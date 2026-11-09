@@ -160,7 +160,7 @@ fake_vel_transform:
     input_cmd_vel_topic: /cmd_vel_nav2_result
     output_cmd_vel_topic: /cmd_vel
     cmd_spin_topic: /cmd_spin
-    init_spin_speed: 3.14
+    init_spin_speed: 0.0
 small_gicp_relocalization:
   ros__parameters:
     use_sim_time: true
@@ -169,6 +169,15 @@ small_gicp_relocalization:
     global_leaf_size: 0.1
     registered_leaf_size: 0.05
     max_dist_sq: 0.25
+    # Commissioning thresholds: validate on this map and again on the real robot.
+    required_consecutive_matches: 3
+    registration_timeout_sec: 1.5
+    min_registration_inliers: 100
+    min_registration_inlier_ratio: 0.2
+    # Covariance-weighted cost per inlier, NOT metres or metric RMSE.
+    max_registration_mean_error: 5.0
+    max_registration_translation_step: 0.75
+    max_registration_rotation_step: 0.6
     map_frame: map
     odom_frame: odom
     base_frame: base_footprint
@@ -185,8 +194,10 @@ pointcloud_to_laserscan:
   ros__parameters:
     use_sim_time: true
     target_frame: gimbal_yaw_fake
+    # Retain at most 0.3 s of 10 Hz clouds while waiting for TF.
+    queue_size: 3
     min_height: 0.0
-    max_height: 1.0
+    max_height: 0.15
     min_intensity: 0.0
     max_intensity: 100.0
     angle_min: -3.1415926
@@ -264,6 +275,7 @@ bt_navigator:
     default_nav_to_pose_bt_xml: $(find-pkg-share sentry_sim_bringup)/behavior_trees/navigate_to_pose_w_replanning_and_recovery.xml
     default_nav_through_poses_bt_xml: $(find-pkg-share sentry_sim_bringup)/behavior_trees/navigate_through_poses_w_replanning_and_recovery.xml
     plugin_lib_names:
+    - sentry_tunnel_bt_node
     - nav2_compute_path_to_pose_action_bt_node
     - nav2_compute_path_through_poses_action_bt_node
     - nav2_smooth_path_action_bt_node
@@ -310,21 +322,30 @@ bt_navigator:
     - nav2_assisted_teleop_cancel_bt_node
     - nav2_drive_on_heading_cancel_bt_node
     - nav2_is_battery_charging_condition_bt_node
+# Humble creates separate BT client nodes; initialize their clocks at construction.
+bt_navigator_navigate_through_poses_rclcpp_node:
+  ros__parameters:
+    use_sim_time: true
+bt_navigator_navigate_to_pose_rclcpp_node:
+  ros__parameters:
+    use_sim_time: true
 controller_server:
   ros__parameters:
     use_sim_time: true
     odom_topic: odometry
     controller_frequency: 20.0
     min_x_velocity_threshold: 0.001
-    min_y_velocity_threshold: 0.5
+    min_y_velocity_threshold: 0.001
     min_theta_velocity_threshold: 0.001
     failure_tolerance: 0.6
     progress_checker_plugins:
     - progress_checker
     goal_checker_plugins:
     - general_goal_checker
+    - tunnel_goal_checker
     controller_plugins:
     - FollowPath
+    - FollowPathTunnel
     progress_checker:
       plugin: nav2_controller::SimpleProgressChecker
       required_movement_radius: 0.5
@@ -332,10 +353,19 @@ controller_server:
     general_goal_checker:
       stateful: true
       plugin: nav2_controller::SimpleGoalChecker
+      xy_goal_tolerance: 0.5
+      yaw_goal_tolerance: 6.28
+    tunnel_goal_checker:
+      stateful: true
+      plugin: nav2_controller::SimpleGoalChecker
       xy_goal_tolerance: 0.15
       yaw_goal_tolerance: 6.28
     FollowPath:
       plugin: pb_omni_pid_pursuit_controller::OmniPidPursuitController
+      # Preserve existing fake-frame velocity conversion; footprint uses chassis.
+      control_frame: gimbal_yaw_fake
+      use_polygon_collision_check: true
+      collision_prediction_time: 0.5
       translation_kp: 3.0
       translation_ki: 0.1
       translation_kd: 0.3
@@ -347,16 +377,55 @@ controller_server:
       min_max_sum_error: 1.0
       lookahead_dist: 2.0
       use_velocity_scaled_lookahead_dist: true
-      lookahead_time: 1.0
-      min_lookahead_dist: 0.5
-      max_lookahead_dist: 1.0
+      # Ordinary navigation keeps short lookahead.
+      lookahead_time: 0.5
+      min_lookahead_dist: 0.2
+      max_lookahead_dist: 0.4
       use_interpolation: false
       use_rotate_to_heading: false
       use_rotate_to_heading_treshold: 0.1
-      min_approach_linear_velocity: 0.5
-      approach_velocity_scaling_dist: 1.0
-      v_linear_min: -2.5
-      v_linear_max: 2.5
+      min_approach_linear_velocity: 0.15
+      # Stop within the ordinary target region.
+      approach_velocity_scaling_dist: 0.9
+      v_linear_min: -1.0
+      v_linear_max: 1.0
+      v_angular_min: -3.0
+      v_angular_max: 3.0
+      curvature_min: 0.4
+      curvature_max: 0.7
+      reduction_ratio_at_high_curvature: 0.5
+      curvature_forward_dist: 0.7
+      curvature_backward_dist: 0.3
+      max_velocity_scaling_factor_rate: 0.9
+    FollowPathTunnel:
+      plugin: pb_omni_pid_pursuit_controller::OmniPidPursuitController
+      # Preserve existing fake-frame velocity conversion; footprint uses chassis.
+      control_frame: gimbal_yaw_fake
+      use_polygon_collision_check: true
+      collision_prediction_time: 0.5
+      translation_kp: 3.0
+      translation_ki: 0.1
+      translation_kd: 0.3
+      enable_rotation: false
+      rotation_kp: 3.0
+      rotation_ki: 0.1
+      rotation_kd: 0.3
+      transform_tolerance: 0.1
+      min_max_sum_error: 1.0
+      lookahead_dist: 2.0
+      use_velocity_scaled_lookahead_dist: true
+      # Same controller and collision checks for tunnel preparation and passage.
+      lookahead_time: 0.5
+      min_lookahead_dist: 0.2
+      max_lookahead_dist: 0.4
+      use_interpolation: false
+      use_rotate_to_heading: false
+      use_rotate_to_heading_treshold: 0.1
+      min_approach_linear_velocity: 0.15
+      # Decelerate near the outside exit target.
+      approach_velocity_scaling_dist: 0.6
+      v_linear_min: -1.0
+      v_linear_max: 1.0
       v_angular_min: -3.0
       v_angular_max: 3.0
       curvature_min: 0.4
@@ -372,12 +441,14 @@ local_costmap:
       update_frequency: 10.0
       publish_frequency: 5.0
       global_frame: odom
-      robot_base_frame: gimbal_yaw_fake
+      robot_base_frame: chassis
       rolling_window: true
       width: 5
       height: 5
       resolution: 0.05
-      robot_radius: 0.4
+      # Body collision AABB, rounded outward; points are in chassis coordinates.
+      footprint: '[[-0.288, -0.267], [0.288, -0.267], [0.288, 0.267], [-0.288, 0.267]]'
+      footprint_padding: 0.005
       plugins:
       - static_layer
       - obstacle_layer
@@ -439,8 +510,10 @@ global_costmap:
       update_frequency: 5.0
       publish_frequency: 2.0
       global_frame: map
-      robot_base_frame: gimbal_yaw_fake
-      robot_radius: 0.4
+      robot_base_frame: chassis
+      # Body collision AABB, rounded outward; points are in chassis coordinates.
+      footprint: '[[-0.288, -0.267], [0.288, -0.267], [0.288, 0.267], [-0.288, 0.267]]'
+      footprint_padding: 0.005
       resolution: 0.05
       plugins:
       - static_layer
@@ -514,6 +587,25 @@ planner_server:
     - GridBased
     GridBased:
       plugin: tdt_yastar_planner/YastarPlanner
+      # TDT closed minimum-jerk geometry only; current controller keeps speed control.
+      trajectory_optimization:
+        enabled: true
+        max_time_seconds: 0.03
+        max_control_points: 12
+        max_output_points: 1200
+        control_spacing: 0.6
+        sample_spacing: 0.025
+        max_deviation: 0.25
+        max_length_ratio: 1.1
+      # Current diting_3v3_field map coordinates, including 0.5 m entry/exit extensions.
+      # Discount soft planning costs only; lethal/unknown/body collisions still block.
+      tunnel_cost_enabled: true
+      tunnel_cost_scale: 0.1
+      # Each rectangle: [min_x, min_y, max_x, max_y] in map, metres.
+      # Compatibility fallback only: normal bundled component launches inject
+      # authoritative ROI from scene_geometry.yaml. Editing this literal alone
+      # does not change normal dual/LIO/GT launch geometry.
+      tunnel_cost_regions: [-4.0, 3.06, -1.0, 3.86, 1.0, -3.86, 4.0, -3.06]
       how_many_corners: 8
       w_euc_cost: 1.0
       w_traversal_cost: 10.0

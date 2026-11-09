@@ -30,6 +30,17 @@ fi
 # map/costmap messages. Default to UDPv4 unless the caller overrides it.
 export ROS_DOMAIN_ID="${ROS_DOMAIN_ID:-0}"
 export FASTDDS_BUILTIN_TRANSPORTS="${FASTDDS_BUILTIN_TRANSPORTS:-UDPv4}"
+# Explicit UDP participant profile also covers hosts where the built-in mode
+# leaves discovery working but command delivery through shared memory fails.
+# Preserve caller-supplied profiles and transport choices.
+_sentry_dds_profile="${_sentry_ws_root}/sentry_nav/src/sentry_sim_bringup/config/fastdds_udp.xml"
+if [ "${FASTDDS_BUILTIN_TRANSPORTS}" = "UDPv4" ] && \
+   [ -z "${FASTRTPS_DEFAULT_PROFILES_FILE:-}" ] && \
+   [ -z "${FASTDDS_DEFAULT_PROFILES_FILE:-}" ] && \
+   [ -f "${_sentry_dds_profile}" ]; then
+  export FASTRTPS_DEFAULT_PROFILES_FILE="${_sentry_dds_profile}"
+fi
+unset _sentry_dds_profile
 
 _ros_setup=/opt/ros/humble/setup.bash
 _gazebo_root="${_sentry_ws_root}"

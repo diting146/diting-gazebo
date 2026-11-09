@@ -63,7 +63,8 @@ WIDTH = int(np.ceil((XMAX - XMIN) / RES))   # 272
 HEIGHT = int(np.ceil((YMAX - YMIN) / RES))  # 192
 
 SLICE_Z = 0.25
-DILATE_ITERS = 2
+# One 5 cm cell retains a rasterization buffer; Nav2 handles body clearance.
+DILATE_ITERS = 1
 FREE = 254
 OCC = 0
 UNKNOWN = 205

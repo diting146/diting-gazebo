@@ -73,19 +73,23 @@ FakeVelTransform::FakeVelTransform(const rclcpp::NodeOptions & options)
     std::bind(&FakeVelTransform::syncCallback, this, std::placeholders::_1, std::placeholders::_2));
 
   // 50Hz Timer to send transform from `robot_base_frame` to `fake_robot_base_frame`
-  timer_ = this->create_wall_timer(
-    std::chrono::milliseconds(20), std::bind(&FakeVelTransform::publishTransform, this));
+  timer_ = this->create_wall_timer(std::chrono::milliseconds(20), [this]() {
+    publishTransform();
+    publishWatchdogStop();
+  });
 }
 
 void FakeVelTransform::cmdSpinCallback(const example_interfaces::msg::Float32::SharedPtr msg)
 {
+  std::lock_guard<std::mutex> lock(cmd_vel_mutex_);
   spin_speed_ = msg->data;
 }
 
 void FakeVelTransform::odometryCallback(const nav_msgs::msg::Odometry::ConstSharedPtr & msg)
 {
-  // NOTE: Haven't synced with local_plan
-  if ((rclcpp::Clock().now() - last_controller_activate_time_).seconds() > CONTROLLER_TIMEOUT) {
+  std::lock_guard<std::mutex> lock(cmd_vel_mutex_);
+  const auto elapsed = std::chrono::steady_clock::now() - last_controller_activate_time_;
+  if (std::chrono::duration<double>(elapsed).count() > CONTROLLER_TIMEOUT) {
     current_robot_base_angle_ = tf2::getYaw(msg->pose.pose.orientation);
   }
 }
@@ -93,23 +97,22 @@ void FakeVelTransform::odometryCallback(const nav_msgs::msg::Odometry::ConstShar
 void FakeVelTransform::cmdVelCallback(const geometry_msgs::msg::Twist::SharedPtr msg)
 {
   std::lock_guard<std::mutex> lock(cmd_vel_mutex_);
+  last_cmd_vel_time_ = std::chrono::steady_clock::now();
+  has_received_cmd_vel_ = true;
+  // Cache zero commands too: a delayed synchronized pair must not replay motion.
+  latest_cmd_vel_ = msg;
   const bool is_zero_vel = std::abs(msg->linear.x) < EPSILON && std::abs(msg->linear.y) < EPSILON &&
                            std::abs(msg->angular.z) < EPSILON;
-  if (
-    is_zero_vel ||
-    (rclcpp::Clock().now() - last_controller_activate_time_).seconds() > CONTROLLER_TIMEOUT) {
-    // If received velocity cannot be synchronized, publish it directly
-    auto aft_tf_vel = transformVelocity(msg, current_robot_base_angle_);
-    cmd_vel_chassis_pub_->publish(aft_tf_vel);
-  } else {
-    latest_cmd_vel_ = msg;
+  const auto elapsed = last_cmd_vel_time_ - last_controller_activate_time_;
+  if (is_zero_vel || std::chrono::duration<double>(elapsed).count() > CONTROLLER_TIMEOUT) {
+    cmd_vel_chassis_pub_->publish(transformVelocity(msg, current_robot_base_angle_));
   }
 }
 
 void FakeVelTransform::localPlanCallback(const nav_msgs::msg::Path::ConstSharedPtr & /*msg*/)
 {
-  // Consider nav2_controller_server is activated when receiving local_plan
-  last_controller_activate_time_ = rclcpp::Clock().now();
+  std::lock_guard<std::mutex> lock(cmd_vel_mutex_);
+  last_controller_activate_time_ = std::chrono::steady_clock::now();
 }
 
 void FakeVelTransform::syncCallback(
@@ -117,23 +120,41 @@ void FakeVelTransform::syncCallback(
   const nav_msgs::msg::Path::ConstSharedPtr & /*local_plan_msg*/)
 {
   std::lock_guard<std::mutex> lock(cmd_vel_mutex_);
-  geometry_msgs::msg::Twist::SharedPtr current_cmd_vel;
-  {
-    if (!latest_cmd_vel_) {
-      return;
-    }
-    current_cmd_vel = latest_cmd_vel_;
-  }
-
   current_robot_base_angle_ = tf2::getYaw(odom_msg->pose.pose.orientation);
-  float yaw_diff = current_robot_base_angle_;
-  geometry_msgs::msg::Twist aft_tf_vel = transformVelocity(current_cmd_vel, yaw_diff);
+  if (!latest_cmd_vel_) {
+    return;
+  }
+  const auto elapsed = std::chrono::steady_clock::now() - last_cmd_vel_time_;
+  if (std::chrono::duration<double>(elapsed).count() > CONTROLLER_TIMEOUT) {
+    latest_cmd_vel_.reset();
+    geometry_msgs::msg::Twist idle;
+    idle.angular.z = spin_speed_;
+    cmd_vel_chassis_pub_->publish(idle);
+    return;
+  }
+  cmd_vel_chassis_pub_->publish(transformVelocity(latest_cmd_vel_, current_robot_base_angle_));
+}
 
-  cmd_vel_chassis_pub_->publish(aft_tf_vel);
+void FakeVelTransform::publishWatchdogStop()
+{
+  std::lock_guard<std::mutex> lock(cmd_vel_mutex_);
+  if (!has_received_cmd_vel_) {
+    return;
+  }
+  const auto elapsed = std::chrono::steady_clock::now() - last_cmd_vel_time_;
+  if (std::chrono::duration<double>(elapsed).count() <= CONTROLLER_TIMEOUT) {
+    return;
+  }
+  latest_cmd_vel_.reset();
+  geometry_msgs::msg::Twist idle;
+  // Preserve the explicitly configured idle spin; zero disables it.
+  idle.angular.z = spin_speed_;
+  cmd_vel_chassis_pub_->publish(idle);
 }
 
 void FakeVelTransform::publishTransform()
 {
+  std::lock_guard<std::mutex> lock(cmd_vel_mutex_);
   geometry_msgs::msg::TransformStamped t;
   t.header.stamp = this->get_clock()->now();
   t.header.frame_id = robot_base_frame_;
