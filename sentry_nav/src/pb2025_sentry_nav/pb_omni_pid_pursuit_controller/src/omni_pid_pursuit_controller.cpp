@@ -185,6 +185,13 @@ void OmniPidPursuitController::configure(
 
   node->get_parameter("controller_frequency", control_frequency);
 
+  if (
+    !std::isfinite(control_frequency) || control_frequency <= 0.0 ||
+    !std::isfinite(max_velocity_scaling_factor_rate_) || max_velocity_scaling_factor_rate_ <= 0.0) {
+    throw nav2_core::PlannerException(
+      "controller frequency and linear speed change rate must be positive");
+  }
+
   transform_tolerance_ = tf2::durationFromSec(transform_tolerance);
   control_duration_ = 1.0 / control_frequency;
 
@@ -227,6 +234,8 @@ void OmniPidPursuitController::activate()
     plugin_name_.c_str());
   collision_episode_.commandAccepted();
   pending_collision_event_.reset();
+  linear_speed_profile_.reset();
+  last_command_time_.reset();
   collision_pub_->on_activate();
   local_path_pub_->on_activate();
   carrot_pub_->on_activate();
@@ -256,6 +265,15 @@ geometry_msgs::msg::TwistStamped OmniPidPursuitController::computeVelocityComman
   nav2_core::GoalChecker * /*goal_checker*/)
 {
   std::lock_guard<std::mutex> lock_reinit(mutex_);
+
+  const auto command_time = clock_->now();
+  if (
+    !last_command_time_ || command_time <= *last_command_time_ ||
+    (command_time - *last_command_time_).seconds() > 3.0 * control_duration_) {
+    // A new task/recovery must start from observed motion, not a stale command.
+    // Frequent setPlan() calls during replanning do not reset this state.
+    linear_speed_profile_.reset(hypot(velocity.linear.x, velocity.linear.y));
+  }
 
   nav2_costmap_2d::Costmap2D * costmap = costmap_ros_->getCostmap();
   std::unique_lock<nav2_costmap_2d::Costmap2D::mutex_t> lock(*(costmap->getMutex()));
@@ -307,6 +325,8 @@ geometry_msgs::msg::TwistStamped OmniPidPursuitController::computeVelocityComman
   cmd_vel.twist.angular.z = angular_vel;
   applySpeedLimit(cmd_vel.twist);
   if (isCollisionDetected(costmap_frame_local_plan, pose, velocity, cmd_vel.twist)) {
+    linear_speed_profile_.reset();
+    last_command_time_.reset();
     // The decision and byte snapshot were captured under this exact mutex.
     // Serialization and DDS delivery must not hold up costmap updates.
     lock.unlock();
@@ -315,6 +335,7 @@ geometry_msgs::msg::TwistStamped OmniPidPursuitController::computeVelocityComman
   }
 
   collision_episode_.commandAccepted();
+  last_command_time_ = command_time;
   return cmd_vel;
 }
 
@@ -355,11 +376,12 @@ void OmniPidPursuitController::applyVelocityConstraints(
   // Otherwise approach scaling would depend on the higher normal-road maximum.
   const double limit = effectiveLinearSpeedLimit();
   linear_vel = std::clamp(linear_vel, -limit, limit);
-  // Curvature rate limiting must not carry a faster outside-region command into
-  // the regional speed profile.
-  last_velocity_scaling_factor_ = std::clamp(last_velocity_scaling_factor_, -limit, limit);
   applyCurvatureLimitation(path, lookahead_pose, linear_vel);
   applyApproachVelocityScaling(path, linear_vel);
+  // Always regulate the resulting speed, including straight sections and
+  // recovery from a bend. The previous curvature-only branch skipped recovery.
+  linear_vel = linear_speed_profile_.update(
+    linear_vel, limit, max_velocity_scaling_factor_rate_, control_duration_);
 }
 
 void OmniPidPursuitController::applySpeedLimit(geometry_msgs::msg::Twist & command) const
@@ -795,17 +817,11 @@ void OmniPidPursuitController::applyCurvatureLimitation(
                                 (1.0 - reduction_ratio_at_high_curvature_);
     }
 
-    double target_scaled_vel = linear_vel * reduction_ratio;
-    scaled_linear_vel =
-      last_velocity_scaling_factor_ + std::clamp(
-                                        target_scaled_vel - last_velocity_scaling_factor_,
-                                        -max_velocity_scaling_factor_rate_ * control_duration_,
-                                        max_velocity_scaling_factor_rate_ * control_duration_);
+    scaled_linear_vel = linear_vel * reduction_ratio;
   }
   scaled_linear_vel = std::max(scaled_linear_vel, 2.0 * min_approach_linear_velocity_);
 
   linear_vel = std::min(linear_vel, scaled_linear_vel);
-  last_velocity_scaling_factor_ = linear_vel;
 }
 
 double OmniPidPursuitController::calculateCurvature(
@@ -954,6 +970,15 @@ rcl_interfaces::msg::SetParametersResult OmniPidPursuitController::dynamicParame
   double linear_max = v_linear_max_;
   for (const auto & parameter : parameters) {
     const auto & name = parameter.get_name();
+    if (name == plugin_name_ + ".max_velocity_scaling_factor_rate") {
+      if (
+        parameter.get_type() != ParameterType::PARAMETER_DOUBLE ||
+        !std::isfinite(parameter.as_double()) || parameter.as_double() <= 0.0) {
+        result.successful = false;
+        result.reason = "linear speed change rate must be a positive finite double";
+        return result;
+      }
+    }
     if (name == plugin_name_ + ".v_linear_min" || name == plugin_name_ + ".v_linear_max") {
       if (parameter.get_type() != ParameterType::PARAMETER_DOUBLE) {
         result.successful = false;

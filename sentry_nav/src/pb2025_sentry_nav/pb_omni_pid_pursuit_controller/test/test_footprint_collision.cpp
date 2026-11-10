@@ -271,13 +271,16 @@ TEST_F(ControllerConstraintTest, RegionalProfileMatchesHardLimitForStraightCurve
       PID regional_pid(0.05, 1.0, -1.0, 3.0, 0.3, 0.1);
       // Seed the real curvature state with faster normal-road motion before
       // entering the limited area, rather than testing only a cap in isolation.
-      for (int i = 0; i < 4; ++i) {
-        double a = old_pid.calculate(0.3, 0.0);
-        double b = regional_pid.calculate(0.3, 0.0);
+      double a = 0.0, b = 0.0;
+      for (int i = 0; i < 40; ++i) {
+        a = old_pid.calculate(0.3, 0.0);
+        b = regional_pid.calculate(0.3, 0.0);
         old.controller.applyVelocityConstraints(warmup_path, warmup_carrot, a);
         regional.controller.applyVelocityConstraints(warmup_path, warmup_carrot, b);
-        ASSERT_GT(b, a);
+        ASSERT_LE(a, 0.4);
+        ASSERT_LE(b, 1.0);
       }
+      ASSERT_GT(b, a);
       regional.controller.setSpeedLimit(0.4, false);
       const auto path = constraintPath(curved, length);
       const auto carrot = constraintCarrot(curved);
@@ -297,20 +300,50 @@ TEST_F(ControllerConstraintTest, RegionalProfileMatchesHardLimitForStraightCurve
   }
 }
 
-TEST_F(ControllerConstraintTest, ClearingRegionRestoresHigherNormalRoadConstraintOutput)
+TEST_F(ControllerConstraintTest, ClearingRegionRampsToNormalSpeedWithoutACommandJump)
 {
   ConfiguredController configured("restored_limit_controller", 1.0, costmap_);
   const auto path = constraintPath(false, 3.0);
   const auto carrot = constraintCarrot(false);
   configured.controller.setSpeedLimit(0.4, false);
-  double limited = 0.9;
-  configured.controller.applyVelocityConstraints(path, carrot, limited);
+  double limited = 0.0;
+  for (int tick = 0; tick < 20; ++tick) {
+    limited = 0.9;
+    configured.controller.applyVelocityConstraints(path, carrot, limited);
+  }
   ASSERT_NEAR(limited, 0.4, 1e-12);
   configured.controller.setSpeedLimit(nav2_costmap_2d::NO_SPEED_LIMIT, false);
   double restored = 0.9;
   configured.controller.applyVelocityConstraints(path, carrot, restored);
-  EXPECT_NEAR(restored, 0.9, 1e-12);
+  EXPECT_NEAR(restored, 0.445, 1e-12);
   EXPECT_GT(restored, limited);
+  for (int tick = 0; tick < 20; ++tick) {
+    const double previous = restored;
+    restored = 0.9;
+    configured.controller.applyVelocityConstraints(path, carrot, restored);
+    EXPECT_LE(restored - previous, 0.045 + 1e-12);
+    EXPECT_LE(restored, 0.9);
+  }
+  EXPECT_NEAR(restored, 0.9, 1e-12);
+}
+
+TEST_F(ControllerConstraintTest, BendToStraightReplanningKeepsBothSpeedChangesBounded)
+{
+  ConfiguredController configured("continuous_speed_controller", 1.0, costmap_);
+  double previous = 0.0;
+  for (int tick = 0; tick < 100; ++tick) {
+    const bool curved = (tick / 15) % 2 == 1;
+    double speed = 1.0;
+    configured.controller.applyVelocityConstraints(
+      constraintPath(curved, 3.0), constraintCarrot(curved), speed);
+    EXPECT_LE(std::abs(speed - previous), 0.045 + 1e-12);
+    previous = speed;
+  }
+  configured.controller.setSpeedLimit(0.2, false);
+  double speed = 1.0;
+  configured.controller.applyVelocityConstraints(
+    constraintPath(false, 3.0), constraintCarrot(false), speed);
+  EXPECT_LE(speed, 0.2);
 }
 
 std::vector<geometry_msgs::msg::Point> body()

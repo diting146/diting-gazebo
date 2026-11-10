@@ -373,9 +373,11 @@ controller_server:
       control_frame: gimbal_yaw_fake
       use_polygon_collision_check: true
       collision_prediction_time: 0.5
-      translation_kp: 3.0
+      # Reach the 1 m/s normal-road cap at the minimum 0.2 m lookahead.
+      translation_kp: 5.0
       translation_ki: 0.1
-      translation_kd: 0.3
+      # Lookahead distance is a moving reference; avoid derivative kicks on LIO/replans.
+      translation_kd: 0.0
       enable_rotation: false
       rotation_kp: 3.0
       rotation_ki: 0.1
@@ -388,7 +390,7 @@ controller_server:
       lookahead_time: 0.5
       min_lookahead_dist: 0.2
       max_lookahead_dist: 0.4
-      use_interpolation: false
+      use_interpolation: true
       use_rotate_to_heading: false
       use_rotate_to_heading_treshold: 0.1
       min_approach_linear_velocity: 0.15
@@ -403,6 +405,7 @@ controller_server:
       reduction_ratio_at_high_curvature: 0.5            # 高曲率时的速度降低比例。 0.5 (即减速 50%)
       curvature_forward_dist: 0.7                       # 前向距离，用于曲率计算
       curvature_backward_dist: 0.3                      # 后向距离，用于曲率计算
+      # Soft linear acceleration/deceleration in m/s^2; hard speed caps remain immediate.
       max_velocity_scaling_factor_rate: 0.9             # 速度缩放因子的最大变化率
 
 
@@ -412,9 +415,11 @@ controller_server:
       control_frame: gimbal_yaw_fake
       use_polygon_collision_check: true
       collision_prediction_time: 0.5
-      translation_kp: 3.0
+      # Reach the 1 m/s normal-road cap at the minimum 0.2 m lookahead.
+      translation_kp: 5.0
       translation_ki: 0.1
-      translation_kd: 0.3
+      # Lookahead distance is a moving reference; avoid derivative kicks on LIO/replans.
+      translation_kd: 0.0
       enable_rotation: false
       rotation_kp: 3.0
       rotation_ki: 0.1
@@ -427,7 +432,7 @@ controller_server:
       lookahead_time: 0.5
       min_lookahead_dist: 0.2
       max_lookahead_dist: 0.4
-      use_interpolation: false
+      use_interpolation: true
       use_rotate_to_heading: false
       use_rotate_to_heading_treshold: 0.1
       min_approach_linear_velocity: 0.15
@@ -442,6 +447,7 @@ controller_server:
       reduction_ratio_at_high_curvature: 0.5            # 高曲率时的速度降低比例。 0.5 (即减速 50%)
       curvature_forward_dist: 0.7                       # 前向距离，用于曲率计算
       curvature_backward_dist: 0.3                      # 后向距离，用于曲率计算
+      # Soft linear acceleration/deceleration in m/s^2; hard speed caps remain immediate.
       max_velocity_scaling_factor_rate: 0.9             # 速度缩放因子的最大变化率
 
 
@@ -577,7 +583,7 @@ global_costmap:
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         cost_scaling_factor: 4.0
-        inflation_radius: 0.7
+        inflation_radius: 0.5
       always_send_full_costmap: False
 
 # The yaml_filename does not need to be specified since it going to be set by defaults in launch.

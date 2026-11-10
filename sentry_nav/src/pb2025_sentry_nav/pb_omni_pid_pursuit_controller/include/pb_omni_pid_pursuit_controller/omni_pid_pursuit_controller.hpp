@@ -22,6 +22,7 @@
 
 #include "nav2_core/controller.hpp"
 #include "pb_omni_pid_pursuit_controller/collision_diagnostics.hpp"
+#include "pb_omni_pid_pursuit_controller/linear_speed_profile.hpp"
 #include "pb_omni_pid_pursuit_controller/pid.hpp"
 #include "std_msgs/msg/string.hpp"
 #include "visualization_msgs/msg/marker_array.hpp"
@@ -116,7 +117,7 @@ protected:
   double effectiveLinearSpeedLimit() const;
 
   /**
-   * @brief Applies the linear cap before the existing curvature and approach reductions.
+   * @brief Applies the hard cap, curvature/approach reductions and continuous speed profile.
    * Called with mutex_ held by the controller command loop.
    */
   void applyVelocityConstraints(
@@ -296,7 +297,8 @@ private:
   nav2_costmap_2d::Costmap2D * costmap_;
   rclcpp::Logger logger_{rclcpp::get_logger("OmniPidPursuitController")};
   rclcpp::Clock::SharedPtr clock_;
-  double last_velocity_scaling_factor_{0.0};
+  LinearSpeedProfile linear_speed_profile_;
+  std::optional<rclcpp::Time> last_command_time_;
 
   std::shared_ptr<PID> move_pid_;
   std::shared_ptr<PID> heading_pid_;
